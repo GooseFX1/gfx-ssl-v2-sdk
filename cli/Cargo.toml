@@ -1,0 +1,22 @@
+[package]
+name = "gfx-ssl-v2-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gfx-ssl"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.71"
+clap = { version = "3.2.23", features = ["derive"] }
+gfx-ssl-v2-sdk = { path = "../sdk", default-features = false }
+gfx-ssl-v2-interface = { path = "../programs/gfx-ssl-v2", features = ["no-entrypoint"] }
+solana-client = "1.14.18"
+solana-remote-wallet = { version = "1.14.18", features = ["hidapi"] }
+anchor-lang = "0.27.0"
+anchor-spl = {version = "0.27.0", default-features = false, features = ["mint", "token", "associated_token"] }
+solana-devtools-cli-config = { git = "https://github.com/ebrightfield/solana-devtools" }
+solana-sdk = "1.14.18"
+serde = "1.0.163"
+serde_json = "1.0.96"
