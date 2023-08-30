@@ -391,7 +391,7 @@ impl Amm for GfxAmm {
                 ssl_in_mint_out.amount,
                 ssl_out_mint_in.amount,
                 ssl_out_mint_out.amount,
-                quote_params.in_amount,
+                quote_params.amount,
             )
         } {
             QuoteResult::Ok(swap_result) => {
@@ -543,7 +543,7 @@ mod tests {
             Some(OraclePriceHistory::address(&pool_registry, &oracle_b));
         gfx_amm.mint_b_price_history = Some(price_history_b.clone());
         let account_metas = gfx_amm
-            .get_swap_leg_and_account_metas(&SwapParams {
+            .get_swap_and_account_metas(&SwapParams {
                 source_mint: mint_a,
                 destination_mint: mint_b,
                 source_token_account: get_associated_token_address(&user_wallet, &mint_a),
@@ -551,6 +551,7 @@ mod tests {
                 open_order_address: None,
                 quote_mint_to_referrer: None,
                 in_amount: 0,
+                out_amount: 0,
                 token_transfer_authority: Default::default(),
                 jupiter_program_id: &Default::default(),
             })
@@ -599,7 +600,7 @@ mod tests {
             Some(OraclePriceHistory::address(&pool_registry, &oracle_b));
         gfx_amm.mint_b_price_history = Some(price_history_b);
         let account_metas = gfx_amm
-            .get_swap_leg_and_account_metas(&SwapParams {
+            .get_swap_and_account_metas(&SwapParams {
                 source_mint: mint_b,
                 destination_mint: mint_a,
                 source_token_account: get_associated_token_address(&user_wallet, &mint_b),
@@ -608,6 +609,7 @@ mod tests {
                 open_order_address: None,
                 quote_mint_to_referrer: None,
                 in_amount: 0,
+                out_amount: 0,
                 jupiter_program_id: &Default::default(),
             })
             .unwrap()
