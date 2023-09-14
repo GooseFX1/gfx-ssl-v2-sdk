@@ -15,23 +15,15 @@ pub enum GfxSslSdkError {
     #[error("Pair does not contain both mints: {0} {1}")]
     MintNotInPair(Pubkey, Pubkey),
 
-    #[cfg(feature = "jupiter_amm")]
-    #[error("Invalid account size for {0}, expect: {1}, got: {2}")]
-    InvalidAccountSize(Pubkey, usize, usize),
-
-    #[cfg(feature = "jupiter_amm")]
     #[error("Some required accounts are not updated")]
     RequiredAccountUpdate,
 
-    #[cfg(feature = "jupiter_amm")]
     #[error("Price history accounts need to be updated")]
     PriceHistoryUpdateRequired,
 
-    #[cfg(feature = "jupiter_amm")]
     #[error("The AMM does not support provided mints")]
     UnexpectedMints,
 
-    #[cfg(feature = "jupiter_amm")]
     #[error("Tried initializing a GfxAmm instance with inconsistent account data")]
     InconsistentInitializationData,
 }
