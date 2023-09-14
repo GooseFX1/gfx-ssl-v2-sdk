@@ -3,13 +3,6 @@ name = "gfx-ssl-v2-sdk"
 version = "0.1.0"
 edition = "2021"
 
-[[example]]
-name = "jupiter_quote"
-
-[features]
-default = ["jupiter_amm"]
-jupiter_amm = ["jupiter-amm-interface"]
-
 [dependencies]
 anchor-client = "0.27.0"
 anchor-spl = {version = "0.27.0", default-features = false, features = ["mint", "token", "associated_token"] }
@@ -18,4 +11,3 @@ gfx-ssl-v2-interface = { path = "../programs/gfx-ssl-v2", features = ["no-entryp
 thiserror = "1.0.40"
 rust_decimal = { version = "1", features = ["maths"] }
 anyhow = "1.0.71"
-jupiter-amm-interface = { version = "0.2.1", optional = true }
