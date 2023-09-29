@@ -4,6 +4,7 @@ members = [
     "sdk",
     "cli",
 ]
+exclude=["ts"]
 
 [profile.release]
 overflow-checks = true
