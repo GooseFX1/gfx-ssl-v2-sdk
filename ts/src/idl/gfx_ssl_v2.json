@@ -139,11 +139,6 @@
           "isSigner": false
         },
         {
-          "name": "sslFeeVault",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "poolRegistry",
           "isMut": true,
           "isSigner": false
