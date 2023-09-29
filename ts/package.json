@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "prepare": "npm run build",
-    "build": "tsc -p src"
+    "build": "tsc -p src",
+    "format": "prettier '.' --write"
   },
   "keywords": [
     "GooseFX",
@@ -21,7 +22,8 @@
     "@typescript-eslint/parser": "^5.59.1",
     "eslint": "^8.16.0",
     "eslint-config-google": "^0.14.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "prettier": "^2.6.2"
   },
   "dependencies": {
     "@project-serum/anchor": "^0.26.0",

@@ -1,3 +1,3 @@
-xtest("Testing example", async() => {
-  console.log("Hello World")
-})
+xtest("Testing example", async () => {
+  console.log("Hello World");
+});
