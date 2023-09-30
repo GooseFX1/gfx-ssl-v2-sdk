@@ -10,7 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "gfx-ssl-sdk": "file:.."
+    "gfx-ssl-sdk": "file:..",
+    "@project-serum/anchor": "^0.26.0",
+    "@solana/web3.js": "^1.75.0",
+    "@types/bn.js": "^5.1.1"
   },
   "files": [
     "/dist"
