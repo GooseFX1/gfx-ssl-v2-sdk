@@ -1,8 +1,33 @@
-import { BN, Program, Wallet } from "@project-serum/anchor";
-import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { BN, Program } from "@project-serum/anchor";
+import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { findAssociatedTokenAddress, getPoolRegistry, getSSLProgram, getValidPairKey, getSslPoolSignerKey, getOraclePriceHistory, getOracleFromMint, getFeeDestination, getLiquidityAccountKey, wrapSOLIx, unwrapAllSOLIx } from "./utils";
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { assert } from "console";
+
+export type SwapIxParams = {
+  tokenMintIn: PublicKey;
+  tokenMintOut: PublicKey;
+  amountIn: BN;
+  minAmountOut: BN;
+};
+
+export type CreateLiquidityAccountIxParams = {
+  tokenMint: PublicKey;
+}
+
+export type DepositIxParams = {
+  tokenMint: PublicKey;
+  amountIn: BN;
+  userAta?: PublicKey;
+  useNativeSOL: boolean;
+}
+
+export type WithdrawIxParams = {
+  tokenMint: PublicKey;
+  amountIn: BN;
+  userAta?: PublicKey;
+  outNativeSOL?: boolean;
+}
 
 export class SSL {
   connection: Connection;
@@ -16,33 +41,38 @@ export class SSL {
     this.program = program;
   }
 
-  async swapIx(mintIn: PublicKey, mintOut: PublicKey, amountIn: BN, minOut?: BN) {
+  async swapIx({
+    tokenMintIn,
+    tokenMintOut,
+    amountIn,
+    minAmountOut
+  }: SwapIxParams): Promise<TransactionInstruction[]> {
     if (!this.connection) throw new Error("SSL Not initialized");
     const pair = getValidPairKey(
-      mintIn,
-      mintOut
+      tokenMintIn,
+      tokenMintOut
     );
     if (!pair) throw new Error("Pair not supported");
-    const userAtaIn = findAssociatedTokenAddress(this.wallet, mintIn)
-    const userAtaOut = findAssociatedTokenAddress(this.wallet, mintOut)
+    const userAtaIn = findAssociatedTokenAddress(this.wallet, tokenMintIn)
+    const userAtaOut = findAssociatedTokenAddress(this.wallet, tokenMintOut)
 
-    const sslPoolSignerIn = getSslPoolSignerKey(mintIn)
-    const sslPoolSignerOut = getSslPoolSignerKey(mintOut)
+    const sslPoolSignerIn = getSslPoolSignerKey(tokenMintIn)
+    const sslPoolSignerOut = getSslPoolSignerKey(tokenMintOut)
 
-    const inputOracle = getOracleFromMint(mintIn)
-    const outputOracle = getOracleFromMint(mintOut)
+    const inputOracle = getOracleFromMint(tokenMintIn)
+    const outputOracle = getOracleFromMint(tokenMintOut)
 
     const priceHistoryIn = getOraclePriceHistory(inputOracle)
     const priceHistoryOut = getOraclePriceHistory(outputOracle)
 
-    const sslOutMainVault = findAssociatedTokenAddress(sslPoolSignerOut, mintOut)
-    const sslOutSecondaryVault = findAssociatedTokenAddress(sslPoolSignerOut, mintIn)
+    const sslOutMainVault = findAssociatedTokenAddress(sslPoolSignerOut, tokenMintOut)
+    const sslOutSecondaryVault = findAssociatedTokenAddress(sslPoolSignerOut, tokenMintIn)
 
-    const sslInMainVault = findAssociatedTokenAddress(sslPoolSignerIn, mintIn)
-    const sslInSecondaryVault = findAssociatedTokenAddress(sslPoolSignerIn, mintOut)
+    const sslInMainVault = findAssociatedTokenAddress(sslPoolSignerIn, tokenMintIn)
+    const sslInSecondaryVault = findAssociatedTokenAddress(sslPoolSignerIn, tokenMintOut)
 
-    const feeVault = findAssociatedTokenAddress(getPoolRegistry(), mintOut)
-    const feeDestination = await getFeeDestination(pair, this.program, mintOut)
+    const feeVault = findAssociatedTokenAddress(getPoolRegistry(), tokenMintOut)
+    const feeDestination = await getFeeDestination(pair, this.program, tokenMintOut)
     const accounts = {
       pair: pair,
       poolRegistry: getPoolRegistry(),
@@ -63,11 +93,13 @@ export class SSL {
       inputTokenOracle: inputOracle,
       tokenProgram: TOKEN_PROGRAM_ID
     }
-    const minOutVal = minOut ? minOut : new BN(0)
-    return this.program.methods.swap(amountIn, minOutVal).accounts(accounts).signers([]).instruction()
+    const minOutVal = minAmountOut ? minAmountOut : new BN(0)
+    return [(await this.program.methods.swap(amountIn, minOutVal).accounts(accounts).signers([]).instruction())]
   }
 
-  async createLiquidityAccountIx(tokenMint: PublicKey) {
+  async createLiquidityAccountIx({
+    tokenMint
+  }: CreateLiquidityAccountIxParams): Promise<TransactionInstruction[]> {
     const poolRegistry = getPoolRegistry();
     
     const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
@@ -79,16 +111,21 @@ export class SSL {
       owner: this.wallet
     }
 
-    return this.program.methods.createLiquidityAccountIx().accounts(accounts).instruction();
+    return [(await this.program.methods.createLiquidityAccountIx().accounts(accounts).instruction())];
   }
 
-  async depositIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey, isNativeSOL?: boolean) {
+  async depositIx({
+    tokenMint,
+    amountIn,
+    userAta,
+    useNativeSOL
+  }: DepositIxParams): Promise<TransactionInstruction[]> {
 
     let ixs: TransactionInstruction[] = [];
 
     const poolRegistry = getPoolRegistry();
 
-    if(isNativeSOL) {
+    if(useNativeSOL) {
       assert(tokenMint.toString() === NATIVE_MINT.toString(), "The token mint must be W-SOL Pubkey if isNativeSOL = true");
       ixs.push(
         ...wrapSOLIx(this.wallet, amountIn.toNumber())
@@ -100,8 +137,8 @@ export class SSL {
     const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
 
     if((await this.connection.getBalance(liquidityAc)) === 0) {
-      const createLiquidityAccountIx = (await this.createLiquidityAccountIx(tokenMint));
-      ixs.push(createLiquidityAccountIx);
+      const createLiquidityAccountIx = (await this.createLiquidityAccountIx({tokenMint}));
+      ixs.push(...createLiquidityAccountIx);
     }
 
     const poolVaultAc = findAssociatedTokenAddress(sslPoolSigner, tokenMint);
@@ -125,7 +162,12 @@ export class SSL {
     return ixs;
   }
 
-  async withdrawIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey, outNativeSOL?: boolean) {
+  async withdrawIx({
+    tokenMint,
+    amountIn,
+    userAta,
+    outNativeSOL
+  }: WithdrawIxParams): Promise<TransactionInstruction[]> {
     let ixs: TransactionInstruction[] = [];
 
     const poolRegistry = getPoolRegistry();
