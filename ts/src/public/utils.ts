@@ -1,8 +1,8 @@
-import { PublicKey, Connection, Keypair } from "@solana/web3.js";
+import { PublicKey, Connection, Keypair, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import ssl_idl from "../idl/gfx_ssl_v2.json";
 import { Program, AnchorProvider, Wallet } from "@project-serum/anchor";
 import { GFX_PROGRAM_ID, AUTHORITY, TOKEN_INFO, PAIR_MINTS, POOL_REGISTRY_SEED, PAIR_SEED, SSL_POOL, ORACLE_PRICE_HISTORY_SEED } from "../constants";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createSyncNativeInstruction, createCloseAccountInstruction, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export const getSSLProgram = (connection: Connection): Program => {
   const kp = Keypair.generate()
@@ -187,3 +187,55 @@ export const getFeeDestination = async (
   }
   return null
 };
+
+export const wrapSOLIx = (
+  owner: PublicKey,
+  amount: number | bigint
+) => {
+
+  let wrappedSOLAta = findAssociatedTokenAddress(
+      owner,
+      NATIVE_MINT // mint
+  );
+
+  let ixs: TransactionInstruction[] = [];
+
+  // Create a transfer instruction to the W_SOL ATA
+  let transferIx = SystemProgram.transfer({
+      fromPubkey: owner,
+      toPubkey: wrappedSOLAta,
+      lamports: amount
+  });
+
+  ixs.push(transferIx);
+
+  // Sync the SOL balance with wrapped SOL balance on the ATA
+  let syncSOLIx = createSyncNativeInstruction(wrappedSOLAta);
+  
+  ixs.push(syncSOLIx);
+
+  return ixs;
+}
+
+
+// TODO - Might have to check with other references if this is the correct approach
+// to unwrap SOL
+// Source: https://solana.stackexchange.com/questions/1112/how-to-unwrap-wsol-to-sol/1118#1118
+export const unwrapAllSOLIx = (
+  owner: PublicKey
+) => {
+  // Unwrap all WSOL by closing the wrappedSOLAta
+
+  const wrappedSOLAta = findAssociatedTokenAddress(
+      owner,
+      NATIVE_MINT
+  );
+
+  const closeWrappedSOLAtaIx = createCloseAccountInstruction(
+      wrappedSOLAta,
+      owner,
+      owner
+  );
+
+  return closeWrappedSOLAtaIx;
+}
