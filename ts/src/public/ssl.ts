@@ -1,7 +1,8 @@
 import { BN, Program, Wallet } from "@project-serum/anchor";
-import { Connection, PublicKey } from "@solana/web3.js";
-import { findAssociatedTokenAddress, getPoolRegistry, getSSLProgram, getValidPairKey, getSslPoolSignerKey, getOraclePriceHistory, getOracleFromMint, getFeeDestination, getLiquidityAccountKey } from "./utils";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { findAssociatedTokenAddress, getPoolRegistry, getSSLProgram, getValidPairKey, getSslPoolSignerKey, getOraclePriceHistory, getOracleFromMint, getFeeDestination, getLiquidityAccountKey, wrapSOLIx, unwrapAllSOLIx } from "./utils";
+import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { assert } from "console";
 
 export class SSL {
   connection: Connection;
@@ -81,18 +82,25 @@ export class SSL {
     return this.program.methods.createLiquidityAccountIx().accounts(accounts).instruction();
   }
 
-  async depositIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey) {
+  async depositIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey, isNativeSOL?: boolean) {
 
-    let ixs = [];
+    let ixs: TransactionInstruction[] = [];
 
     const poolRegistry = getPoolRegistry();
+
+    if(isNativeSOL) {
+      assert(tokenMint.toString() === NATIVE_MINT.toString(), "The token mint must be W-SOL Pubkey if isNativeSOL = true");
+      ixs.push(
+        ...wrapSOLIx(this.wallet, amountIn.toNumber())
+      );
+    }
 
     const sslPoolSigner = getSslPoolSignerKey(tokenMint);
 
     const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
 
     if((await this.connection.getBalance(liquidityAc)) === 0) {
-      const createLiquidityAccountIx = this.createLiquidityAccountIx(tokenMint);
+      const createLiquidityAccountIx = (await this.createLiquidityAccountIx(tokenMint));
       ixs.push(createLiquidityAccountIx);
     }
 
@@ -111,14 +119,20 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
   
-    const depositIx = this.program.methods.depositIx(amountIn).accounts(accounts).signers([]).instruction();
+    const depositIx = (await this.program.methods.depositIx(amountIn).accounts(accounts).signers([]).instruction());
     ixs.push(depositIx);
 
     return ixs;
   }
 
-  async withdrawIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey) {
+  async withdrawIx(tokenMint: PublicKey, amountIn: BN, userAta?: PublicKey, outNativeSOL?: boolean) {
+    let ixs: TransactionInstruction[] = [];
+
     const poolRegistry = getPoolRegistry();
+
+    if(outNativeSOL) {
+      assert(tokenMint.toString() === NATIVE_MINT.toString(), "The token mint must be W-SOL pubkey if outNativeSOL = true");
+    }
 
     const sslPoolSigner = getSslPoolSignerKey(tokenMint);
 
@@ -139,6 +153,16 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
 
-    return this.program.methods.withdrawIx(amountIn).accounts(accounts).signers([]).instruction();
+    let withdrawIx = await this.program.methods.withdrawIx(amountIn).accounts(accounts).signers([]).instruction();
+
+    ixs.push(withdrawIx);
+
+    if(outNativeSOL) {
+      ixs.push(
+        unwrapAllSOLIx(this.wallet)
+      );
+    }
+
+    return ixs;
   }
 }
