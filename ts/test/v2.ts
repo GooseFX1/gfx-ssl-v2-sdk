@@ -36,7 +36,7 @@ describe("Main-net tests on SSL-v2 SDK", () => {
             }
 
             const signature = await sendAndConfirmTransaction(connection, tx,[userKeypair, ...txPacket.transactionInfos.signers], {skipPreflight: true});
-            console.log('Create LiquidityAccount signature: ', signature);
+            console.log(`Create LiquidityAccount signature: https://solscan.io/tx/${signature}`);
 
             await delay(5_000);
 
@@ -69,6 +69,26 @@ describe("Main-net tests on SSL-v2 SDK", () => {
 
             const signature = await sendAndConfirmTransaction(connection, tx,[userKeypair, ...txPacket.transactionInfos.signers], {skipPreflight: true});
             console.log(`Deposit tokens signature: https://solscan.io/tx/${signature}`);
+        }
+        catch(err) {
+            console.log("Error; ", err);
+        }
+    });
+
+    it("SHOULD FAIL: Premature closure a LiquidityAccount with funds", async() => {
+        try {
+            const txPacket = await sslClient.closeLiquidityAccountIx({
+                tokenMint: USDC_MAINNET
+            });
+
+            const tx = new anchor.web3.Transaction();
+            
+            for(let ix of txPacket.transactionInfos.ixs) {
+                tx.add(ix);
+            }
+
+            const signature = await sendAndConfirmTransaction(connection, tx,[userKeypair, ...txPacket.transactionInfos.signers], {skipPreflight: true});
+            console.log(`Close LiquidityAccount signature: https://solscan.io/tx/${signature}`);
         }
         catch(err) {
             console.log("Error; ", err);
@@ -129,6 +149,26 @@ describe("Main-net tests on SSL-v2 SDK", () => {
 
             const signature = await sendAndConfirmTransaction(connection, tx, [userKeypair, ...txPacket.transactionInfos.signers], {skipPreflight: true});
             console.log(`Swap USDC to WSOL signature: https://solscan.io/tx/${signature}`);
+        }
+        catch(err) {
+            console.log("Error; ", err);
+        }
+    });
+
+    it("Close a LiquidityAccount for a user", async() => {
+        try {
+            const txPacket = await sslClient.closeLiquidityAccountIx({
+                tokenMint: USDC_MAINNET
+            });
+
+            const tx = new anchor.web3.Transaction();
+            
+            for(let ix of txPacket.transactionInfos.ixs) {
+                tx.add(ix);
+            }
+
+            const signature = await sendAndConfirmTransaction(connection, tx,[userKeypair, ...txPacket.transactionInfos.signers], {skipPreflight: true});
+            console.log(`Close LiquidityAccount signature: https://solscan.io/tx/${signature}`);
         }
         catch(err) {
             console.log("Error; ", err);

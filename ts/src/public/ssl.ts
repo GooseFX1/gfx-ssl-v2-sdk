@@ -15,6 +15,10 @@ export type CreateLiquidityAccountIxParams = {
   tokenMint: PublicKey;
 }
 
+export type CloseLiquidityAccountIxParams = {
+  tokenMint: PublicKey;
+}
+
 export type DepositIxParams = {
   tokenMint: PublicKey;
   amountIn: BN;
@@ -42,6 +46,9 @@ export interface SwapIxResult extends ActionResult {
 
 export interface CreateLiquidityAccountIxResult extends ActionResult {
   liquidityAccountAddr: PublicKey;
+}
+
+export interface CloseLiquidityAccountIxResult extends ActionResult {
 }
 
 export interface DepositIxResult extends ActionResult {
@@ -165,6 +172,30 @@ export class SSL {
         signers: []
       },
       liquidityAccountAddr: liquidityAc
+    };
+  }
+
+  async closeLiquidityAccountIx({
+    tokenMint
+  }: CloseLiquidityAccountIxParams): Promise<CloseLiquidityAccountIxResult> {
+    const poolRegistry = getPoolRegistry();
+    
+    const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
+
+    const accounts = {
+      liquidityAccount: liquidityAc,
+      owner: this.wallet,
+      rentRecipient: this.wallet,
+    }
+
+    let ixs = await this.program.methods.closeLiquidityAccount().accounts(accounts).instruction();
+
+    return {
+      transactionInfos: {
+        ixs: [ixs],
+        preIxs: [],
+        signers: []
+      },
     };
   }
 
