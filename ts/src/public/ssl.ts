@@ -1,17 +1,21 @@
 import { BN, Program } from "@project-serum/anchor";
-import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Connection, PublicKey, Signer, TransactionInstruction } from "@solana/web3.js";
 import { findAssociatedTokenAddress, getPoolRegistry, getSSLProgram, getValidPairKey, getSslPoolSignerKey, getOraclePriceHistory, getOracleFromMint, getFeeDestination, getLiquidityAccountKey, wrapSOLIx, unwrapAllSOLIx } from "./utils";
-import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { NATIVE_MINT, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { assert } from "console";
 
 export type SwapIxParams = {
   tokenMintIn: PublicKey;
   tokenMintOut: PublicKey;
   amountIn: BN;
-  minAmountOut: BN;
+  minAmountOut?: BN;
 };
 
 export type CreateLiquidityAccountIxParams = {
+  tokenMint: PublicKey;
+}
+
+export type CloseLiquidityAccountIxParams = {
   tokenMint: PublicKey;
 }
 
@@ -19,7 +23,7 @@ export type DepositIxParams = {
   tokenMint: PublicKey;
   amountIn: BN;
   userAta?: PublicKey;
-  useNativeSOL: boolean;
+  useNativeSOL?: boolean;
 }
 
 export type WithdrawIxParams = {
@@ -27,6 +31,32 @@ export type WithdrawIxParams = {
   amountIn: BN;
   userAta?: PublicKey;
   outNativeSOL?: boolean;
+}
+
+export type ActionResult = {
+  transactionInfos: {
+    ixs: TransactionInstruction[],
+    signers: Signer[]
+    preIxs: TransactionInstruction[],
+  }
+};
+
+export interface SwapIxResult extends ActionResult {
+}
+
+export interface CreateLiquidityAccountIxResult extends ActionResult {
+  liquidityAccountAddr: PublicKey;
+}
+
+export interface CloseLiquidityAccountIxResult extends ActionResult {
+}
+
+export interface DepositIxResult extends ActionResult {
+  liquidityAccountAddr: PublicKey;
+}
+
+export interface WithdrawIxResult extends ActionResult {
+  liquidityAccountAddr: PublicKey;
 }
 
 export class SSL {
@@ -46,15 +76,29 @@ export class SSL {
     tokenMintOut,
     amountIn,
     minAmountOut
-  }: SwapIxParams): Promise<TransactionInstruction[]> {
+  }: SwapIxParams): Promise<SwapIxResult> {
     if (!this.connection) throw new Error("SSL Not initialized");
     const pair = getValidPairKey(
       tokenMintIn,
       tokenMintOut
     );
     if (!pair) throw new Error("Pair not supported");
+
+    let preInstructions = [];
+
     const userAtaIn = findAssociatedTokenAddress(this.wallet, tokenMintIn)
     const userAtaOut = findAssociatedTokenAddress(this.wallet, tokenMintOut)
+
+    if((await this.connection.getBalance(userAtaOut)) === 0) {
+      let userAtaOutInitIx = createAssociatedTokenAccountInstruction(
+        this.wallet,
+        userAtaOut,
+        this.wallet,
+        tokenMintOut
+      );
+
+      preInstructions.push(userAtaOutInitIx);
+    }
 
     const sslPoolSignerIn = getSslPoolSignerKey(tokenMintIn)
     const sslPoolSignerOut = getSslPoolSignerKey(tokenMintOut)
@@ -94,12 +138,20 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     }
     const minOutVal = minAmountOut ? minAmountOut : new BN(0)
-    return [(await this.program.methods.swap(amountIn, minOutVal).accounts(accounts).signers([]).instruction())]
+    let ix = await this.program.methods.swap(amountIn, minOutVal).accounts(accounts).signers([]).instruction();
+
+    return {
+      transactionInfos: {
+        ixs: [ix],
+        signers: [],
+        preIxs: preInstructions.length > 0 ? preInstructions : []
+      }
+    }
   }
 
   async createLiquidityAccountIx({
     tokenMint
-  }: CreateLiquidityAccountIxParams): Promise<TransactionInstruction[]> {
+  }: CreateLiquidityAccountIxParams): Promise<CreateLiquidityAccountIxResult> {
     const poolRegistry = getPoolRegistry();
     
     const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
@@ -111,7 +163,40 @@ export class SSL {
       owner: this.wallet
     }
 
-    return [(await this.program.methods.createLiquidityAccountIx().accounts(accounts).instruction())];
+    let ixs = await this.program.methods.createLiquidityAccount().accounts(accounts).instruction();
+
+    return {
+      transactionInfos: {
+        ixs: [ixs],
+        preIxs: [],
+        signers: []
+      },
+      liquidityAccountAddr: liquidityAc
+    };
+  }
+
+  async closeLiquidityAccountIx({
+    tokenMint
+  }: CloseLiquidityAccountIxParams): Promise<CloseLiquidityAccountIxResult> {
+    const poolRegistry = getPoolRegistry();
+    
+    const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
+
+    const accounts = {
+      liquidityAccount: liquidityAc,
+      owner: this.wallet,
+      rentRecipient: this.wallet,
+    }
+
+    let ixs = await this.program.methods.closeLiquidityAccount().accounts(accounts).instruction();
+
+    return {
+      transactionInfos: {
+        ixs: [ixs],
+        preIxs: [],
+        signers: []
+      },
+    };
   }
 
   async depositIx({
@@ -119,7 +204,7 @@ export class SSL {
     amountIn,
     userAta,
     useNativeSOL
-  }: DepositIxParams): Promise<TransactionInstruction[]> {
+  }: DepositIxParams): Promise<DepositIxResult> {
 
     let ixs: TransactionInstruction[] = [];
 
@@ -138,7 +223,7 @@ export class SSL {
 
     if((await this.connection.getBalance(liquidityAc)) === 0) {
       const createLiquidityAccountIx = (await this.createLiquidityAccountIx({tokenMint}));
-      ixs.push(...createLiquidityAccountIx);
+      ixs.push(...createLiquidityAccountIx.transactionInfos.ixs);
     }
 
     const poolVaultAc = findAssociatedTokenAddress(sslPoolSigner, tokenMint);
@@ -156,10 +241,17 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
   
-    const depositIx = (await this.program.methods.depositIx(amountIn).accounts(accounts).signers([]).instruction());
+    const depositIx = (await this.program.methods.deposit(amountIn).accounts(accounts).signers([]).instruction());
     ixs.push(depositIx);
 
-    return ixs;
+    return {
+      transactionInfos: {
+        ixs: ixs,
+        preIxs: [],
+        signers:[]
+      },
+      liquidityAccountAddr: liquidityAc
+    };
   }
 
   async withdrawIx({
@@ -167,7 +259,7 @@ export class SSL {
     amountIn,
     userAta,
     outNativeSOL
-  }: WithdrawIxParams): Promise<TransactionInstruction[]> {
+  }: WithdrawIxParams): Promise<WithdrawIxResult> {
     let ixs: TransactionInstruction[] = [];
 
     const poolRegistry = getPoolRegistry();
@@ -195,7 +287,7 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
 
-    let withdrawIx = await this.program.methods.withdrawIx(amountIn).accounts(accounts).signers([]).instruction();
+    let withdrawIx = await this.program.methods.withdraw(amountIn).accounts(accounts).signers([]).instruction();
 
     ixs.push(withdrawIx);
 
@@ -205,6 +297,13 @@ export class SSL {
       );
     }
 
-    return ixs;
+    return {
+      transactionInfos: {
+        ixs: ixs,
+        preIxs: [],
+        signers:[]
+      },
+      liquidityAccountAddr: liquidityAc
+    };
   }
 }

@@ -9,4 +9,5 @@ export type TokenInfo = {
   mint: string,
   name: string,
   oracle: string
+  decimals: number
 }

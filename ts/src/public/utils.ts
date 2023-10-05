@@ -73,6 +73,24 @@ export const getMintFromName = (name: string) => {
   return null
 }
 
+export const getDecimalsFromMint = (mint: string) => {
+  for (let i=0 ; i < TOKEN_INFO.length; i++){
+    const item = TOKEN_INFO[i]
+    if (item.mint === mint)
+      return item.decimals
+  }
+  return 0
+}
+
+export const getDecimalsFromName = (name: string) => {
+  for (let i=0 ; i < TOKEN_INFO.length; i++){
+    const item = TOKEN_INFO[i]
+    if (item.name === name)
+      return item.decimals
+  }
+  return 0
+}
+
 export const getLiquidityAccountKey = async (
   walletKey: PublicKey,
   mint: PublicKey
@@ -239,3 +257,7 @@ export const unwrapAllSOLIx = (
 
   return closeWrappedSOLAtaIx;
 }
+
+export const delay = (time) => {
+  return new Promise((resolve) => setTimeout(resolve, time));
+};
