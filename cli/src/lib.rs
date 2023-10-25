@@ -77,6 +77,14 @@ pub enum Subcommand {
         #[clap(long)]
         latest_price_weight: Option<u16>,
     },
+    SuspendSsl {
+        /// The pool registry which hosts the SSL pool being configured.
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// The mint of the SSL pool being targeted for configuration.
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        mint: Pubkey,
+    },
     /// Configure an admin address that has the limited privilege to suspend
     /// swaps on a given pool.
     /// This configuration instruction is permissioned to the pool registry admin.
@@ -567,6 +575,24 @@ impl Opt {
                     })?;
                     println!("{}", signature);
                 }
+            }
+            Subcommand::SuspendSsl { pool_registry, mint } => {
+                let ix = suspend_ssl(
+                    pool_registry,
+                    signer_pubkey,
+                    mint,
+                );
+                let tx = Transaction::new_signed_with_payer(
+                    &[ix],
+                    Some(&signer_pubkey),
+                    &vec![signer],
+                    client.get_latest_blockhash()?,
+                );
+                let signature = client.send_transaction(&tx).map_err(|e| {
+                    println!("{:#?}", &e);
+                    e
+                })?;
+                println!("{}", signature);
             }
             Subcommand::ConfigSuspendAdmin {
                 pool_registry,
@@ -1088,6 +1114,8 @@ impl Opt {
             }
             Subcommand::GetPoolRegistry { address } => {
                 let pool_registry = get_pool_registry_blocking(&address, &client)?;
+                println!("Suspend Admin: {}", pool_registry.suspend_admin);
+                println!("");
                 pool_registry
                     .entries
                     .into_iter()

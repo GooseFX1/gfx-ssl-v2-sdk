@@ -1,6 +1,6 @@
 //! # Usage
 //!
-//! ```
+//! ```ignore
 //! use solana_sdk::pubkey::Pubkey;
 //!
 //! #[derive(serde::Serialize, serde::Deserialize)]

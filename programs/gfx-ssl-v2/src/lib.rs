@@ -41,7 +41,7 @@ pub mod gfx_ssl_v2 {
         Ok(())
     }
 
-    pub fn suspend_ssl(ctx: Context<SuspendSsl>, is_suspended: bool) -> Result<()> {
+    pub fn suspend_ssl(ctx: Context<SuspendSsl>) -> Result<()> {
         Ok(())
     }
 
