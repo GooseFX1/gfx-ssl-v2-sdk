@@ -19,7 +19,7 @@ export type DepositIxParams = {
   tokenMint: PublicKey;
   amountIn: BN;
   userAta?: PublicKey;
-  useNativeSOL: boolean;
+  useNativeSOL?: boolean;
 }
 
 export type WithdrawIxParams = {
@@ -27,6 +27,16 @@ export type WithdrawIxParams = {
   amountIn: BN;
   userAta?: PublicKey;
   outNativeSOL?: boolean;
+}
+
+export type ClaimFeesIxParams = {
+  tokenMint: PublicKey;
+  userAta?: PublicKey;
+}
+
+export type GetLiquidityParams = {
+  tokenMint: PublicKey;
+  walletToQuery?: PublicKey
 }
 
 export class SSL {
@@ -118,7 +128,7 @@ export class SSL {
     tokenMint,
     amountIn,
     userAta,
-    useNativeSOL
+    useNativeSOL = false
   }: DepositIxParams): Promise<TransactionInstruction[]> {
 
     let ixs: TransactionInstruction[] = [];
@@ -156,7 +166,7 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
   
-    const depositIx = (await this.program.methods.depositIx(amountIn).accounts(accounts).signers([]).instruction());
+    const depositIx = (await this.program.methods.deposit(amountIn).accounts(accounts).signers([]).instruction());
     ixs.push(depositIx);
 
     return ixs;
@@ -166,7 +176,7 @@ export class SSL {
     tokenMint,
     amountIn,
     userAta,
-    outNativeSOL
+    outNativeSOL = false
   }: WithdrawIxParams): Promise<TransactionInstruction[]> {
     let ixs: TransactionInstruction[] = [];
 
@@ -195,7 +205,7 @@ export class SSL {
       tokenProgram: TOKEN_PROGRAM_ID
     };
 
-    let withdrawIx = await this.program.methods.withdrawIx(amountIn).accounts(accounts).signers([]).instruction();
+    let withdrawIx = await this.program.methods.withdraw(amountIn).accounts(accounts).signers([]).instruction();
 
     ixs.push(withdrawIx);
 
@@ -206,5 +216,60 @@ export class SSL {
     }
 
     return ixs;
+  }
+
+  async claimRewardsIx({
+    tokenMint,
+    userAta,
+  }: ClaimFeesIxParams): Promise<TransactionInstruction[]> {
+    let ixs: TransactionInstruction[] = [];
+
+    const poolRegistry = getPoolRegistry();
+    const liquidityAc = await getLiquidityAccountKey(this.wallet, tokenMint);
+    const feeVault = findAssociatedTokenAddress(poolRegistry, tokenMint);
+
+    const accounts = {
+      poolRegistry: poolRegistry,
+      owner: this.wallet,
+      sslFeeVault: feeVault,
+      ownerAta: userAta ? userAta : findAssociatedTokenAddress(this.wallet, tokenMint),
+      liquidityAccount: liquidityAc,
+      tokenProgram: TOKEN_PROGRAM_ID
+    };
+
+    let claimFeesIx = await this.program.methods.claimFees().accounts(accounts).signers([]).instruction();
+    ixs.push(claimFeesIx);
+    return ixs;
+  }
+
+  async getLiquidityData({
+    tokenMint,
+    walletToQuery
+  }: GetLiquidityParams) {
+
+    const poolRegistry = getPoolRegistry()
+    const sslPools = await this.program.account.poolRegistry.fetch(poolRegistry)
+    let sslPool = null
+    for (let i=0; i< (sslPools?.entries as any).length; i++){
+      const token = sslPools.entries[i]
+      if (token?.mint.toBase58() === tokenMint.toBase58()) {
+        sslPool = token
+      }
+    }
+    if (!sslPool) throw new Error("Pool not supported")
+
+    const liquidityAc = await getLiquidityAccountKey(walletToQuery ?? this.wallet, tokenMint);
+    const liquidityData = await this.program.account.liquidityAccount.fetch(liquidityAc)
+    
+    const amountDeposited = liquidityData.amountDeposited.toString()
+    const totalEarned = liquidityData.totalEarned.toString()
+    const lastClaimed = new Date((liquidityData.lastClaimed as BN).mul(new BN(1000)).toNumber())
+
+    const diff = sslPool.totalAccumulatedLpReward.sub(liquidityData.lastObservedTap)
+    const numerator = diff.mul(liquidityData.amountDeposited)
+    const claimableAmount = numerator.div(sslPool.totalLiquidityDeposits).toString()
+    return {
+      amountDeposited, totalEarned, lastClaimed, claimableAmount, mint: tokenMint.toBase58()
+    }
   }
 }
