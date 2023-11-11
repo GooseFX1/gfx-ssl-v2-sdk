@@ -5,11 +5,13 @@ pub mod config_suspend_admin;
 pub mod crank_price_histories;
 pub mod create_pair;
 pub mod create_pool_registry;
+pub mod config_pool_registry;
 pub mod create_ssl;
 pub mod internal_swap;
 pub mod suspend_ssl;
 
 pub use create_pool_registry::*;
+pub use config_pool_registry::*;
 
 pub use config_ssl::*;
 pub use config_suspend_admin::*;

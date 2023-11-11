@@ -127,9 +127,12 @@ pub enum SSLV2Error {
 
     #[msg("[G137] Oracle price history does not belong to the Pool Registry")] //0x17F9 (6137)
     PoolRegistryNotMatchOraclePriceHistory,
+
+    #[msg("[G138] invalid AssetType")] //0x17FA (6138)
+    InvalidAssetType,
 }
 
-pub const NUM_ERR_VARIANTS: u32 = 38;
+pub const NUM_ERR_VARIANTS: u32 = 39;
 
 impl TryInto<SSLV2Error> for u32 {
     // If the u32 is not within the bounds of [ERROR_CODE_OFFSET] and

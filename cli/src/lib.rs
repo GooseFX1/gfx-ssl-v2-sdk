@@ -64,10 +64,6 @@ pub enum Subcommand {
         /// A BPS value, expressing minimum total distance from the latest oracle price.
         #[clap(long)]
         minimum_price_distance: Option<u16>,
-        /// A BPS value, expressing the maximum ratio of USD-normalized token value
-        /// of any SSL pool's non-main token balance compared to the main token.
-        #[clap(long)]
-        max_pool_token_ratio: Option<u16>,
         /// A BPS value, expressing how much of the standard deviation to add
         /// to the price calculation.
         #[clap(long)]
@@ -518,7 +514,6 @@ impl Opt {
                 std_window,
                 fixed_price_distance,
                 minimum_price_distance,
-                max_pool_token_ratio,
                 std_weight,
                 latest_price_weight,
             } => {
@@ -533,7 +528,6 @@ impl Opt {
                     std_window,
                     fixed_price_distance,
                     minimum_price_distance,
-                    max_pool_token_ratio,
                     std_weight,
                     latest_price_weight,
                 };

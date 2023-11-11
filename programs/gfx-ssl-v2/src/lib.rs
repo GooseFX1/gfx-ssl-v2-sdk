@@ -21,6 +21,13 @@ pub mod gfx_ssl_v2 {
         Ok(())
     }
 
+    pub fn config_pool_registry(
+        ctx: Context<ConfigPoolRegistry>,
+        config: PoolRegistryConfig,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     pub fn create_ssl(
         ctx: Context<CreateSsl>,
         initial_pool_deposit: u64,
