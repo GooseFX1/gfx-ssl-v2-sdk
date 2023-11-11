@@ -8,10 +8,7 @@ use anchor_spl::{
     associated_token::{self, get_associated_token_address},
     token,
 };
-use gfx_ssl_v2_interface::{
-    pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig,
-    SSLMathParams, SSLPool,
-};
+use gfx_ssl_v2_interface::{pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig, SSLMathParams, SSLPool, PoolRegistryConfig};
 
 pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::CreatePoolRegistry.data();
@@ -33,6 +30,28 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     }
 }
 
+pub fn config_pool_registry(
+    config: PoolRegistryConfig,
+    admin: Pubkey,
+    pool_registry: Pubkey,
+) -> Instruction {
+    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry {
+        config
+    }
+        .data();
+
+    let accounts = gfx_ssl_v2_interface::accounts::ConfigPoolRegistry {
+        admin,
+        pool_registry,
+    }
+        .to_account_metas(None);
+
+    Instruction {
+        program_id: gfx_ssl_v2_interface::ID,
+        accounts,
+        data,
+    }
+}
 #[allow(clippy::too_many_arguments)]
 pub fn create_ssl(
     initial_pool_deposit: u64,
