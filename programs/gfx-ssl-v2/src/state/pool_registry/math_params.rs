@@ -44,9 +44,7 @@ pub struct SSLMathParams {
     /// A minimum distance from the latest oracle price expressed in BPS.
     pub minimum_price_distance: u16,
 
-    /// Maximum allowed ratio of this SSL's main token residing in other pools divided
-    /// by the amount of main token in this SSL pool.
-    /// This number is a percentage expressed in BPS.
+    /// Previously stored max_pool_token_ratio
     pub _deprecated: u16,
 
     /// A weight that controls the price influence ratio between
