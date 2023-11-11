@@ -46,6 +46,8 @@ pub struct PoolRegistry {
     pub entries: [SSLPool; MAX_SSL_POOLS_PER_ADMIN],
 }
 
+const _: [u8; 9200] = [0u8; std::mem::size_of::<PoolRegistry>()];
+
 // Manually implemented because you can't directly derive or impl
 // Default for an array.
 impl Default for PoolRegistry {
