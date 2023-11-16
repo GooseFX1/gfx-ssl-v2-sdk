@@ -10,7 +10,6 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::Serialize;
 use crate::pubkey_str::pubkey::Pubkey;
 use gfx_ssl_v2_interface::utils::token_amount;
-use serde_json::Value;
 use solana_sdk::pubkey;
 
 pub const MAINNET_POOL_REGISTRY: Pubkey = pubkey!("F451mjRqGEu1azbj46v4FuMEt1CacaPHQKUHzuTqKp4R");
@@ -69,7 +68,7 @@ pub fn ui_timestamp(raw_timestamp: i64) -> String {
     ).to_string()
 }
 
-pub trait CliDisplay {
+pub trait CliDisplay: Serialize {
     fn to_json(&self) -> serde_json::Value;
 
     fn to_json_str_pretty(&self) -> String;
@@ -78,7 +77,7 @@ pub trait CliDisplay {
 }
 
 impl<T: Serialize> CliDisplay for T {
-    fn to_json(&self) -> Value {
+    fn to_json(&self) -> serde_json::Value {
         serde_json::to_value(&self).unwrap()
     }
 
