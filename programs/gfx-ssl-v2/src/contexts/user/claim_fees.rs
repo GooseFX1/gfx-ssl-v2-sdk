@@ -1,4 +1,4 @@
-use crate::{LiquidityAccount, PoolRegistry};
+use crate::{EventEmitter, LiquidityAccount, PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -33,6 +33,9 @@ pub struct ClaimFees<'info> {
         has_one = pool_registry,
     )]
     pub liquidity_account: Box<Account<'info, LiquidityAccount>>,
+
+    #[account(mut)]
+    pub event_emitter: Account<'info, EventEmitter>,
 
     pub token_program: Program<'info, Token>,
 }

@@ -9,6 +9,7 @@ pub mod config_pool_registry;
 pub mod create_ssl;
 pub mod internal_swap;
 pub mod suspend_ssl;
+pub mod create_event_emitter;
 
 pub use create_pool_registry::*;
 pub use config_pool_registry::*;
@@ -24,3 +25,5 @@ pub use create_pair::*;
 pub use config_price_history::*;
 pub use crank_price_histories::*;
 pub use internal_swap::*;
+
+pub use create_event_emitter::*;

@@ -1,7 +1,7 @@
 use crate::utils::PDAIdentifier;
 #[cfg(feature = "debug-msg")]
 use crate::SSLPoolStatus;
-use crate::{LiquidityAccount, PoolRegistry, SSLPool};
+use crate::{EventEmitter, LiquidityAccount, PoolRegistry, SSLPool};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -54,6 +54,9 @@ pub struct Deposit<'info> {
 
     #[account(mut)]
     pub pool_registry: AccountLoader<'info, PoolRegistry>,
+
+    #[account(mut)]
+    pub event_emitter: Account<'info, EventEmitter>,
 
     pub token_program: Program<'info, Token>,
 }

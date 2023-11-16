@@ -1,4 +1,4 @@
-use crate::{OraclePriceHistory, Pair, PoolRegistry};
+use crate::{EventEmitter, OraclePriceHistory, Pair, PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -87,6 +87,9 @@ pub struct Swap<'info> {
 
     /// CHECK: This account must match the pubkey of what is stored on `self.non_main_token_price_history`.
     pub input_token_oracle: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub event_emitter: Account<'info, EventEmitter>,
 
     pub token_program: Program<'info, Token>,
 }

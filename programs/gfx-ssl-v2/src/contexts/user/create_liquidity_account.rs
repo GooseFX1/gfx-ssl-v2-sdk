@@ -1,5 +1,5 @@
 use crate::utils::PDAIdentifier;
-use crate::{LiquidityAccount, PoolRegistry};
+use crate::{EventEmitter, LiquidityAccount, PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
 
@@ -26,6 +26,9 @@ pub struct CreateLiquidityAccount<'info> {
 
     #[account(mut)]
     pub owner: Signer<'info>,
+
+    #[account(mut)]
+    pub event_emitter: Account<'info, EventEmitter>,
 
     pub system_program: Program<'info, System>,
 }
