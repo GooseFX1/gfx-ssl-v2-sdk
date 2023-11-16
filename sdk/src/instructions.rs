@@ -8,7 +8,7 @@ use anchor_spl::{
     associated_token::{self, get_associated_token_address},
     token,
 };
-use gfx_ssl_v2_interface::{pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig, SSLMathParams, SSLPool, PoolRegistryConfig};
+use gfx_ssl_v2_interface::{pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig, SSLMathParams, SSLPool, PoolRegistryConfig, EventEmitter};
 
 pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::CreatePoolRegistry.data();
@@ -422,6 +422,7 @@ pub fn claim_fees(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey) -> Instruc
         liquidity_account,
         pool_registry,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
@@ -443,6 +444,7 @@ pub fn create_liquidity_account(pool_registry: Pubkey, owner: Pubkey, mint: Pubk
         mint,
         owner,
         pool_registry,
+        event_emitter: EventEmitter::address(),
         system_program: system_program::ID,
     }
     .to_account_metas(None);
@@ -465,6 +467,7 @@ pub fn close_liquidity_account(
         liquidity_account,
         owner,
         rent_recipient,
+        event_emitter: EventEmitter::address(),
         system_program: system_program::ID,
     }
     .to_account_metas(None);
@@ -493,6 +496,7 @@ pub fn deposit(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey, amount: u64) 
         ssl_pool_signer,
         pool_vault,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
@@ -521,6 +525,7 @@ pub fn withdraw(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey, amount: u64)
         ssl_pool_signer,
         pool_vault,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
