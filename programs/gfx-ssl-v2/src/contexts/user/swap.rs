@@ -1,4 +1,4 @@
-use crate::{OraclePriceHistory, Pair, PoolRegistry, EventEmitter};
+use crate::{EventEmitter, OraclePriceHistory, Pair, PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 

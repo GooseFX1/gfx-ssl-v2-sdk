@@ -1,4 +1,4 @@
-use crate::{LiquidityAccount, PoolRegistry, EventEmitter};
+use crate::{EventEmitter, LiquidityAccount, PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 

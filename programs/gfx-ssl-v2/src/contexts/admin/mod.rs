@@ -25,3 +25,5 @@ pub use create_pair::*;
 pub use config_price_history::*;
 pub use crank_price_histories::*;
 pub use internal_swap::*;
+
+pub use create_event_emitter::*;

@@ -20,6 +20,6 @@ impl PDAIdentifier for EventEmitter {
 
 impl EventEmitter {
     pub fn address() -> Pubkey {
-        Self::get_address(&[&[]])
+        Self::get_address(&[])
     }
 }
