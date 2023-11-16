@@ -1,4 +1,4 @@
-use crate::{LiquidityAccount, EventEmitter};
+use crate::{EventEmitter, LiquidityAccount};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

@@ -32,6 +32,10 @@ pub mod gfx_ssl_v2 {
         Ok(())
     }
 
+    pub fn create_event_emitter(ctx: Context<CreateEventEmitter>) -> Result<()> {
+        Ok(())
+    }
+
     pub fn config_pool_registry(
         ctx: Context<ConfigPoolRegistry>,
         config: PoolRegistryConfig,

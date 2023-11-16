@@ -1,5 +1,5 @@
-use crate::PDAIdentifier;
-use crate::{LiquidityAccount, PoolRegistry, SSLPool, EventEmitter};
+use crate::{EventEmitter, PDAIdentifier};
+use crate::{LiquidityAccount, PoolRegistry, SSLPool};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
