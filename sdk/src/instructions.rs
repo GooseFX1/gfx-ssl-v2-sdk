@@ -398,6 +398,7 @@ pub fn internal_swap(
         token_b_oracle: oracle2,
         token_a_price_history,
         token_b_price_history,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);

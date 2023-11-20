@@ -1,4 +1,4 @@
-use crate::{OraclePriceHistory, PDAIdentifier, Pair, PoolRegistry, SSLPool, SSLV2Error};
+use crate::{EventEmitter, OraclePriceHistory, PDAIdentifier, Pair, PoolRegistry, SSLPool, SSLV2Error};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -81,6 +81,9 @@ pub struct InternalSwap<'info> {
         bump,
     )]
     pub ssl_pool_b_signer: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub event_emitter: Account<'info, EventEmitter>,
 
     pub token_program: Program<'info, Token>,
 }
