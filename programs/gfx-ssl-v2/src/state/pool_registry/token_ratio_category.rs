@@ -25,7 +25,7 @@ pub const ASSET_TYPES: [AssetType; NUM_ASSET_TYPES] = [
 pub const NUM_ASSET_TYPES: usize = 3;
 
 /// Get the index where a given pool-registry value is stored
-fn index_of(
+pub fn index_of(
     input_token: &AssetType,
     output_token: &AssetType,
 ) -> std::result::Result<usize, SSLV2Error> {

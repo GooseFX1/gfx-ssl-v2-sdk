@@ -32,14 +32,13 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
 
 pub fn create_event_emitter(
     funder: Pubkey,
-    pool_registry: Pubkey,
 ) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::CreateEventEmitter.data();
 
     let accounts = gfx_ssl_v2_interface::accounts::CreateEventEmitter {
         funder,
-        pool_registry,
         event_emitter: EventEmitter::address(),
+        system_program: system_program::ID,
     }
         .to_account_metas(None);
 

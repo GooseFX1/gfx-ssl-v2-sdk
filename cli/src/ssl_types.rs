@@ -1,6 +1,8 @@
 use crate::pubkey_str::pubkey;
 use anchor_lang::prelude::Pubkey;
 use serde::{Deserialize, Serialize};
+use gfx_ssl_v2_interface::token_ratio_category;
+use gfx_ssl_v2_interface::token_ratio_category::ASSET_TYPES;
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct CreateSSLParams {
@@ -81,25 +83,28 @@ pub struct PairMintParams {
 
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PoolRegistryConfig {
     pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
 }
 
 /// For Anchor instruction encoding.
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[repr(C)]
 pub struct MaxPoolTokenRatio {
-    pub input_token: u8,
-    pub output_token: u8,
+    pub input_token: AssetType,
+    pub output_token: AssetType,
     pub pool_token_ratio: u16,
 }
 
-impl Into<gfx_ssl_v2_interface::MaxPoolTokenRatio> for MaxPoolTokenRatio {
-    fn into(self) -> gfx_ssl_v2_interface::MaxPoolTokenRatio {
-        gfx_ssl_v2_interface::MaxPoolTokenRatio {
-            input_token: self.input_token,
-            output_token: self.output_token,
+impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
+    fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
+        // TODO Fix this
+        let input_token = ASSET_TYPES.binary_search(&self.input_token).unwrap() as u8;
+        let output_token = ASSET_TYPES.binary_search(&self.output_token).unwrap() as u8;
+        token_ratio_category::MaxPoolTokenRatio {
+            input_token,
+            output_token,
             pool_token_ratio: self.pool_token_ratio,
         }
     }
@@ -111,7 +116,7 @@ impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
             new_admin: None,
             new_suspend_admin: None,
             max_pool_token_ratios: self.max_pool_token_ratios
-                .iter()
+                .into_iter()
                 .map(|r| r.into())
                 .collect(),
         }
