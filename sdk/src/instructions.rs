@@ -33,7 +33,6 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     }
 }
 
-<<<<<<< HEAD
 pub fn create_event_emitter(
     funder: Pubkey,
 ) -> Instruction {
@@ -58,10 +57,7 @@ pub fn config_pool_registry(
     admin: Pubkey,
     pool_registry: Pubkey,
 ) -> Instruction {
-    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry {
-        config
-    }
-        .data();
+    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry { config }.data();
 
     let accounts = gfx_ssl_v2_interface::accounts::ConfigPoolRegistry {
         admin,
