@@ -30,15 +30,32 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     }
 }
 
+pub fn create_event_emitter(
+    funder: Pubkey,
+    pool_registry: Pubkey,
+) -> Instruction {
+    let data = gfx_ssl_v2_interface::instruction::CreateEventEmitter.data();
+
+    let accounts = gfx_ssl_v2_interface::accounts::CreateEventEmitter {
+        funder,
+        pool_registry,
+        event_emitter: EventEmitter::address(),
+    }
+        .to_account_metas(None);
+
+    Instruction {
+        program_id: gfx_ssl_v2_interface::ID,
+        accounts,
+        data,
+    }
+}
+
 pub fn config_pool_registry(
     config: PoolRegistryConfig,
     admin: Pubkey,
     pool_registry: Pubkey,
 ) -> Instruction {
-    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry {
-        config
-    }
-        .data();
+    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry { config }.data();
 
     let accounts = gfx_ssl_v2_interface::accounts::ConfigPoolRegistry {
         admin,
@@ -52,6 +69,7 @@ pub fn config_pool_registry(
         data,
     }
 }
+
 #[allow(clippy::too_many_arguments)]
 pub fn create_ssl(
     initial_pool_deposit: u64,

@@ -78,3 +78,42 @@ pub struct PairMintParams {
     /// In basis-points, max 10,000
     pub fee_bps: u16,
 }
+
+/// Intended to be deserialized from a JSON file.
+/// See program library for documentation on these fields.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PoolRegistryConfig {
+    pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
+}
+
+/// For Anchor instruction encoding.
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
+pub struct MaxPoolTokenRatio {
+    pub input_token: u8,
+    pub output_token: u8,
+    pub pool_token_ratio: u16,
+}
+
+impl Into<gfx_ssl_v2_interface::MaxPoolTokenRatio> for MaxPoolTokenRatio {
+    fn into(self) -> gfx_ssl_v2_interface::MaxPoolTokenRatio {
+        gfx_ssl_v2_interface::MaxPoolTokenRatio {
+            input_token: self.input_token,
+            output_token: self.output_token,
+            pool_token_ratio: self.pool_token_ratio,
+        }
+    }
+}
+
+impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
+    fn into(self) -> gfx_ssl_v2_interface::PoolRegistryConfig {
+        gfx_ssl_v2_interface::PoolRegistryConfig {
+            new_admin: None,
+            new_suspend_admin: None,
+            max_pool_token_ratios: self.max_pool_token_ratios
+                .iter()
+                .map(|r| r.into())
+                .collect(),
+        }
+    }
+}

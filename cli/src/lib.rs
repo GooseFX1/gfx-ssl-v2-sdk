@@ -1,13 +1,13 @@
 pub mod pubkey_str;
 mod ssl_types;
 
+use std::collections::HashMap;
 use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::{Mint, TokenAccount};
 use anyhow::anyhow;
 use clap::{IntoApp, Parser};
 use gfx_ssl_v2_interface::{
-    utils::token_amount,
     LiquidityAccount, OraclePriceHistory, Pair, PoolRegistry, SSLMathConfig, SSLPool,
 };
 use gfx_ssl_v2_sdk::instructions::*;
@@ -19,12 +19,29 @@ use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
+use rust_decimal::Decimal;
+use gfx_ssl_v2_interface::utils::token_amount;
+use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
+use crate::ssl_types::PoolRegistryConfig;
 
 #[derive(Parser, Debug)]
 pub enum Subcommand {
     /// Create a new pool registry. The `-k/--keypair` signer
     /// is hardcoded as the lamport funder for the new account.
     CreatePoolRegistry,
+    /// Create a new SSL pool for a given pool registry.
+    ConfigPoolRegistry {
+        /// Instead of executing a transaction, just print a base-58
+        /// encoded transaction message, useful for multisig proposals.
+        #[clap(long)]
+        print_only: bool,
+        /// Defaults to the registry derived from the pool admin.
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Path to a JSON file containing the mathematical parameters
+        /// used for price calculation.
+        json_params_path: String,
+    },
     /// Create a new SSL pool for a given pool registry.
     CreateSsl {
         /// Instead of executing a transaction, just print a base-58
@@ -393,6 +410,17 @@ pub enum Subcommand {
         #[clap(long, parse(try_from_str=Pubkey::try_from))]
         owner: Option<Pubkey>,
     },
+    MarketMakingPnl {
+        /// The pool registry address
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -430,6 +458,48 @@ impl Opt {
                     e
                 })?;
                 println!("{}", signature);
+            }
+            Subcommand::ConfigPoolRegistry {
+                print_only,
+                pool_registry,
+                json_params_path,
+            } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)
+                    .map_err(|e| {
+                        anyhow!("Failed to get pool registry at {}: {}", pool_registry, e)
+                    })?;
+                let admin = pool_registry_data.admin;
+                let json = &fs::read_to_string(json_params_path).map_err(|e| {
+                    anyhow!("Failed to read the SSL creation params JSON file: {}", e)
+                })?;
+                let config: PoolRegistryConfig = serde_json::from_str(json)
+                    .map_err(|e| anyhow!("Failed to deserialize Pool config params: {}", e))?;
+                let config: gfx_ssl_v2_interface::PoolRegistryConfig = config.into();
+                let ix = config_pool_registry(
+                    config,
+                    admin,
+                    pool_registry,
+                );
+
+                if print_only {
+                    let message = Message::new(&[ix], None);
+                    println!(
+                        "{}",
+                        solana_sdk::bs58::encode(message.serialize()).into_string()
+                    );
+                } else {
+                    let tx = Transaction::new_signed_with_payer(
+                        &[ix],
+                        Some(&signer_pubkey),
+                        &vec![signer],
+                        client.get_latest_blockhash()?,
+                    );
+                    let signature = client.send_transaction(&tx).map_err(|e| {
+                        println!("{:#?}", &e);
+                        e
+                    })?;
+                    println!("{}", signature);
+                }
             }
             Subcommand::CreateSsl {
                 print_only,
@@ -1229,6 +1299,44 @@ impl Opt {
                         }
                     }
                 }
+            }
+            Subcommand::MarketMakingPnl { pool_registry,raw, json } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let latest_prices: HashMap<Pubkey, Decimal> =
+                    (0..pool_registry_data.num_entries)
+                    .map(|idx| {
+                        let ssl_pool = &pool_registry_data.entries[idx as usize];
+                        let oracle = ssl_pool.oracle_price_histories[0];
+                        let price_history = get_oracle_price_history_blocking(&oracle, &client)
+                            .unwrap();
+                        let price: Decimal = price_history.latest_price().unwrap().price.into();
+                        (ssl_pool.mint, price)
+                    })
+                        .collect();
+                pool_registry_data
+                    .entries
+                    .into_iter()
+                    .filter(|pool| *pool != SSLPool::default())
+                    .for_each(|pool| {
+                        let total_liquidity_deposits = token_amount::to_ui(
+                            pool.total_liquidity_deposits,
+                            pool.mint_decimals as u32,
+                        );
+                        let pool_accounts_and_data = SSLPoolData::from_rpc_client(
+                            pool,
+                            pool_registry,
+                            pool_registry_data,
+                            &client,
+                        );
+                        let mm_report = MarketMakingReport::generate(
+                            total_liquidity_deposits,
+                            pool_accounts_and_data,
+                            &latest_prices,
+                        );
+                        cli_display::<_, MarketMakingReport, MarketMakingReport>(
+                            &[mm_report], raw, json,
+                        ).unwrap();
+                    });
             }
         }
         Ok(())
