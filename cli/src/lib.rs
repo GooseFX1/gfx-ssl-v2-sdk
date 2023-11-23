@@ -25,10 +25,10 @@ use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
-use crate::ssl_types::PoolRegistryConfig;
 use rust_decimal::Decimal;
 use gfx_ssl_v2_interface::utils::token_amount;
 use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
+use crate::ssl_types::PoolRegistryConfig;
 
 #[derive(Parser, Debug)]
 pub enum Subcommand {
@@ -50,6 +50,19 @@ pub enum Subcommand {
         /// encoded transaction message, useful for multisig proposals.
         #[clap(long)]
         print_only: bool,
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Path to a JSON file containing the mathematical parameters
+        /// used for price calculation.
+        json_params_path: String,
+    },
+    /// Create a new SSL pool for a given pool registry.
+    ConfigPoolRegistry {
+        /// Instead of executing a transaction, just print a base-58
+        /// encoded transaction message, useful for multisig proposals.
+        #[clap(long)]
+        print_only: bool,
+        /// Defaults to the registry derived from the pool admin.
         #[clap(parse(try_from_str=Pubkey::try_from))]
         pool_registry: Pubkey,
         /// Path to a JSON file containing the mathematical parameters
@@ -1366,6 +1379,44 @@ impl Opt {
                         )
                             .unwrap();
                     })
+            }
+            Subcommand::MarketMakingPnl { pool_registry,raw, json } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let latest_prices: HashMap<Pubkey, Decimal> =
+                    (0..pool_registry_data.num_entries)
+                    .map(|idx| {
+                        let ssl_pool = &pool_registry_data.entries[idx as usize];
+                        let oracle = ssl_pool.oracle_price_histories[0];
+                        let price_history = get_oracle_price_history_blocking(&oracle, &client)
+                            .unwrap();
+                        let price: Decimal = price_history.latest_price().unwrap().price.into();
+                        (ssl_pool.mint, price)
+                    })
+                        .collect();
+                pool_registry_data
+                    .entries
+                    .into_iter()
+                    .filter(|pool| *pool != SSLPool::default())
+                    .for_each(|pool| {
+                        let total_liquidity_deposits = token_amount::to_ui(
+                            pool.total_liquidity_deposits,
+                            pool.mint_decimals as u32,
+                        );
+                        let pool_accounts_and_data = SSLPoolData::from_rpc_client(
+                            pool,
+                            pool_registry,
+                            pool_registry_data,
+                            &client,
+                        );
+                        let mm_report = MarketMakingReport::generate(
+                            total_liquidity_deposits,
+                            pool_accounts_and_data,
+                            &latest_prices,
+                        );
+                        cli_display::<_, MarketMakingReport, MarketMakingReport>(
+                            &[mm_report], raw, json,
+                        ).unwrap();
+                    });
             }
         }
         Ok(())
