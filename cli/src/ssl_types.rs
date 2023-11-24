@@ -109,8 +109,10 @@ pub struct MaxPoolTokenRatio {
 
 impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
     fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
-        let input_token = ASSET_TYPES.binary_search(&self.input_token.into()).unwrap() as u8;
-        let output_token = ASSET_TYPES.binary_search(&self.output_token.into()).unwrap() as u8;
+        let input_token = ASSET_TYPES
+            .iter().position(|t| *t == self.input_token.into()).unwrap() as u8;
+        let output_token = ASSET_TYPES
+            .iter().position(|t| *t == self.output_token.into()).unwrap() as u8;
         token_ratio_category::MaxPoolTokenRatio {
             input_token,
             output_token,
