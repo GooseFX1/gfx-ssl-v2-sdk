@@ -29,10 +29,10 @@ pub fn index_of(
     input_token: &AssetType,
     output_token: &AssetType,
 ) -> std::result::Result<usize, SSLV2Error> {
-    let input_token_idx = ASSET_TYPES.binary_search(&input_token)
-        .map_err(|_| SSLV2Error::InvalidAssetType)?;
-    let output_token_idx = ASSET_TYPES.binary_search(&output_token)
-        .map_err(|_| SSLV2Error::InvalidAssetType)?;
+    let input_token_idx = ASSET_TYPES.iter().position(|t| *t == *input_token)
+        .ok_or(SSLV2Error::InvalidAssetType)?;
+    let output_token_idx = ASSET_TYPES.iter().position(|t| *t == *output_token)
+        .ok_or(SSLV2Error::InvalidAssetType)?;
     Ok((input_token_idx * NUM_ASSET_TYPES) + output_token_idx)
 }
 
