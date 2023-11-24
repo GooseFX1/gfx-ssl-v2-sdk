@@ -35,6 +35,16 @@ pub enum AssetType {
     Stable,
 }
 
+impl Into<gfx_ssl_v2_interface::AssetType> for AssetType {
+    fn into(self) -> gfx_ssl_v2_interface::AssetType {
+        match self {
+            AssetType::BlueChip => gfx_ssl_v2_interface::AssetType::BlueChip,
+            AssetType::Volatile => gfx_ssl_v2_interface::AssetType::Volatile,
+            AssetType::Stable => gfx_ssl_v2_interface::AssetType::Stable,
+        }
+    }
+}
+
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -83,13 +93,13 @@ pub struct PairMintParams {
 
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct PoolRegistryConfig {
     pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
 }
 
 /// For Anchor instruction encoding.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[repr(C)]
 pub struct MaxPoolTokenRatio {
     pub input_token: AssetType,
@@ -99,9 +109,8 @@ pub struct MaxPoolTokenRatio {
 
 impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
     fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
-        // TODO Fix this
-        let input_token = ASSET_TYPES.binary_search(&self.input_token).unwrap() as u8;
-        let output_token = ASSET_TYPES.binary_search(&self.output_token).unwrap() as u8;
+        let input_token = ASSET_TYPES.binary_search(&self.input_token.into()).unwrap() as u8;
+        let output_token = ASSET_TYPES.binary_search(&self.output_token.into()).unwrap() as u8;
         token_ratio_category::MaxPoolTokenRatio {
             input_token,
             output_token,

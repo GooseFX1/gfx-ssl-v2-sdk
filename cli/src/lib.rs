@@ -27,8 +27,13 @@ pub enum Subcommand {
     /// is hardcoded as the lamport funder for the new account.
     CreatePoolRegistry,
     CreateEventEmitter {
-        #[clap(parse(try_from_str=Pubkey::try_from))]
-        pool_registry: Pubkey,
+        /// Instead of executing a transaction, just print a base-58
+        /// encoded transaction message, useful for multisig proposals.
+        #[clap(long)]
+        print_only: bool,
+        /// Defaults to the -k/--keypair argument or Solana CLI configured signer.
+        #[clap(long, parse(try_from_str=Pubkey::try_from))]
+        funder: Option<Pubkey>,
     },
     /// Configure pool registry parameters.
     ConfigPoolRegistry {
@@ -447,19 +452,27 @@ impl Opt {
                 })?;
                 println!("{}", signature);
             }
-            Subcommand::CreateEventEmitter { pool_registry } => {
-                let ix = create_event_emitter(signer_pubkey);
-                let tx = Transaction::new_signed_with_payer(
-                    &[ix],
-                    Some(&signer_pubkey),
-                    &vec![signer],
-                    client.get_latest_blockhash()?,
-                );
-                let signature = client.send_transaction(&tx).map_err(|e| {
-                    println!("{:#?}", &e);
-                    e
-                })?;
-                println!("{}", signature);
+            Subcommand::CreateEventEmitter { print_only, funder } => {
+                let ix = create_event_emitter(funder.unwrap_or(signer_pubkey));
+                if print_only {
+                    let message = Message::new(&[ix], None);
+                    println!(
+                        "{}",
+                        solana_sdk::bs58::encode(message.serialize()).into_string()
+                    );
+                } else {
+                    let tx = Transaction::new_signed_with_payer(
+                        &[ix],
+                        Some(&signer_pubkey),
+                        &vec![signer],
+                        client.get_latest_blockhash()?,
+                    );
+                    let signature = client.send_transaction(&tx).map_err(|e| {
+                        println!("{:#?}", &e);
+                        e
+                    })?;
+                    println!("{}", signature);
+                }
             }
             Subcommand::ConfigPoolRegistry {
                 print_only,
