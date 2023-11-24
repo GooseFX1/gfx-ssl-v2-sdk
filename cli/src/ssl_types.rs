@@ -91,23 +91,15 @@ pub struct PairMintParams {
     pub fee_bps: u16,
 }
 
-/// Intended to be deserialized from a JSON file.
-/// See program library for documentation on these fields.
-<<<<<<< HEAD
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct PoolRegistryConfig (Vec<MaxPoolTokenRatio>);
 
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-=======
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PoolRegistryConfig {
     pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
 }
 
 /// For Anchor instruction encoding.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
->>>>>>> e58baeb (WIP)
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[repr(C)]
 pub struct MaxPoolTokenRatio {
     pub input_token: AssetType,
@@ -117,16 +109,10 @@ pub struct MaxPoolTokenRatio {
 
 impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
     fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
-<<<<<<< HEAD
         let input_token = ASSET_TYPES
             .iter().position(|t| *t == self.input_token.into()).unwrap() as u8;
         let output_token = ASSET_TYPES
             .iter().position(|t| *t == self.output_token.into()).unwrap() as u8;
-=======
-        // TODO Fix this
-        let input_token = ASSET_TYPES.binary_search(&self.input_token).unwrap() as u8;
-        let output_token = ASSET_TYPES.binary_search(&self.output_token).unwrap() as u8;
->>>>>>> e58baeb (WIP)
         token_ratio_category::MaxPoolTokenRatio {
             input_token,
             output_token,
@@ -140,11 +126,7 @@ impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
         gfx_ssl_v2_interface::PoolRegistryConfig {
             new_admin: None,
             new_suspend_admin: None,
-<<<<<<< HEAD
             max_pool_token_ratios: self.0
-=======
-            max_pool_token_ratios: self.max_pool_token_ratios
->>>>>>> e58baeb (WIP)
                 .into_iter()
                 .map(|r| r.into())
                 .collect(),
