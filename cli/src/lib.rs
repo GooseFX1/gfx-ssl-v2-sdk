@@ -6,7 +6,8 @@ mod ssl_types;
 use crate::display::cli_display;
 use crate::display::liquidity_account::{LiquidityAccountRawData, LiquidityAccountUiData};
 use crate::display::pair::{PairAccountAndVaults, PairRawData, PairUiData};
-use crate::display::ssl_pool::{SSLPoolData, SSLPoolRawData, SSLPoolUiData};
+use crate::display::ssl_pool::{MarketMakingReport, SSLPoolData, SSLPoolRawData, SSLPoolUiData};
+use std::collections::HashMap;
 use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::Mint;
@@ -25,6 +26,8 @@ use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
 use crate::ssl_types::PoolRegistryConfig;
+use rust_decimal::Decimal;
+use gfx_ssl_v2_interface::utils::token_amount;
 use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
 
 #[derive(Parser, Debug)]
@@ -457,6 +460,17 @@ pub enum Subcommand {
         #[clap(long)]
         json: bool,
     },
+    MarketMakingPnl {
+        /// The pool registry address
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
+    }
 }
 
 /// This is the GFX SSLv2 CLI tool. It allows for interaction with the GFX SSLv2 protocol,
@@ -1315,6 +1329,43 @@ impl Opt {
                 cli_display::<_, LiquidityAccountRawData, LiquidityAccountUiData>(
                     &accounts, raw, json,
                 )?;
+            }
+            Subcommand::MarketMakingPnl { pool_registry, raw, json } => {
+                let pool_registry_data = get_pool_registry_blocking(&address, &client)?;
+                let latest_prices: HashMap<Pubkey, Decimal> = (0usize..pool_registry_data.num_entries)
+                    .map(|i| {
+                        let e = &pool_registry_data.entries[i];
+                        let oracle = e.oracle_price_histories[0];
+                        let price_history = get_oracle_price_history_blocking(&oracle, &client).unwrap();
+                        (e.mint, price_history.latest_price().unwrap())
+                    })
+                    .collect();
+                pool_registry
+                    .entries
+                    .into_iter()
+                    .filter(|pool| *pool != SSLPool::default())
+                    .for_each(|pool| {
+                        let pool_accounts_and_data = SSLPoolData::from_rpc_client(
+                            pool,
+                            pool_registry,
+                            pool_registry_data,
+                            &client,
+                        );
+                        let mm_pnl = MarketMakingReport::generate(
+                            token_amount::to_ui(
+                                pool.total_liquidity_deposits,
+                                pool.mint_decimals as u32,
+                            ),
+                            pool_accounts_and_data,
+                            &latest_prices,
+                        ).unwrap();
+                        cli_display::<_, MarketMakingReport, MarketMakingReport>(
+                            &[mm_pnl],
+                            raw,
+                            json,
+                        )
+                            .unwrap();
+                    })
             }
         }
         Ok(())
