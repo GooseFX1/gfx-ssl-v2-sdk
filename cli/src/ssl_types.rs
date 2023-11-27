@@ -94,9 +94,7 @@ pub struct PairMintParams {
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct PoolRegistryConfig {
-    pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
-}
+pub struct PoolRegistryConfig (Vec<MaxPoolTokenRatio>);
 
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -126,7 +124,7 @@ impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
         gfx_ssl_v2_interface::PoolRegistryConfig {
             new_admin: None,
             new_suspend_admin: None,
-            max_pool_token_ratios: self.max_pool_token_ratios
+            max_pool_token_ratios: self.0
                 .into_iter()
                 .map(|r| r.into())
                 .collect(),
