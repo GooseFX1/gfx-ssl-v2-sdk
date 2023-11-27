@@ -94,9 +94,7 @@ pub struct PairMintParams {
 
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct PoolRegistryConfig {
-    pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
-}
+pub struct PoolRegistryConfig (Vec<MaxPoolTokenRatio>);
 
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
