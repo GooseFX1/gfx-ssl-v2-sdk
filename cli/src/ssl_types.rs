@@ -20,24 +20,11 @@ pub struct CreateSSLParams {
     pub math_params: SSLMathParams,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OracleType {
     Pyth,
     Switchboard,
-    Uninitialized,
-    Invalid,
-}
-
-impl From<u8> for OracleType {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => Self::Uninitialized,
-            1 => Self::Pyth,
-            2 => Self::Switchboard,
-            _ => Self::Invalid,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -103,7 +90,6 @@ pub struct PairMintParams {
     /// In basis-points, max 10,000
     pub fee_bps: u16,
 }
-
 
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.

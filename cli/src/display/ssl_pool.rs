@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+use rust_decimal::Decimal;
 use crate::pubkey_str::{pubkey, pubkey_array};
 use serde::{self, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use gfx_ssl_v2_interface::ssl_pool::MAX_NUM_ORACLES_PER_MINT;
 use gfx_ssl_v2_interface::{AssetType, PoolRegistry, SSLPool, SSLPoolStatus};
+use gfx_ssl_v2_interface::utils::token_amount;
 use crate::display::math_params::{SSLMathParamsRawData, SSLMathParamsUiData};
 use crate::display::{mint_ui_name, ui_amount};
 use crate::pool_vault::{MainVault, MainVaultUiData, SecondaryVault, SecondaryVaultUiData};
@@ -133,5 +136,123 @@ impl From<&SSLPoolData> for SSLPoolUiData {
                 .map(|v| SecondaryVaultUiData::from(v))
                 .collect(),
         }
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct SecondaryVaultValuation {
+    #[serde(with = "pubkey")]
+    pub mint: Pubkey,
+    #[serde(with = "decimal_to_str")]
+    pub balance: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub value: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub value_pct: Decimal,
+}
+
+#[derive(Serialize, Clone)]
+pub struct MarketMakingReport {
+    #[serde(with = "pubkey")]
+    pub mint: Pubkey,
+    #[serde(with = "decimal_to_str")]
+    pub liquidity_deposits: Decimal,
+    /// According to latest USD oracle price
+    #[serde(with = "decimal_to_str")]
+    pub liquidity_deposits_value: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub total_pool_value: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub market_pnl: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub market_pnl_pct: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub main_vault_balance: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub main_vault_value: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub main_vault_value_pct: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub total_secondary_vault_value: Decimal,
+    #[serde(with = "decimal_to_str")]
+    pub total_secondary_vault_value_pct: Decimal,
+    pub secondary_vaults: Vec<SecondaryVaultValuation>,
+}
+
+impl MarketMakingReport {
+    pub fn generate(
+        total_liquidity_deposits: Decimal,
+        pool_accounts_and_data: SSLPoolData,
+        latest_prices: &HashMap<Pubkey, Decimal>,
+    ) -> Self {
+        let main_vault = pool_accounts_and_data.main_vault.unwrap();
+        let main_vault_balance = token_amount::to_ui(
+            main_vault.balance,
+            main_vault.mint_decimals,
+        );
+        let token_price = latest_prices.get(&main_vault.mint)
+            .unwrap();
+        let liquidity_deposits_value = total_liquidity_deposits * token_price;
+        let main_vault_value = main_vault_balance * token_price;
+        let mut total_secondary_vault_value = Decimal::ZERO;
+        let mut secondary_vaults = pool_accounts_and_data.secondary_vaults
+            .into_iter()
+            .map(|vault| {
+                let secondary_token_price = latest_prices.get(&vault.mint).unwrap();
+                let balance = token_amount::to_ui(
+                    vault.balance,
+                    vault.mint_decimals,
+                );
+                let value = balance * secondary_token_price;
+                total_secondary_vault_value += value;
+                SecondaryVaultValuation {
+                    mint: vault.mint,
+                    balance,
+                    value,
+                    value_pct: Decimal::ZERO,
+                }
+            })
+            .collect::<Vec<SecondaryVaultValuation>>();
+        let total_pool_value = main_vault_value + total_secondary_vault_value;
+        let main_vault_value_pct = main_vault_value / total_pool_value;
+        secondary_vaults
+            .iter_mut()
+            .for_each(|vault| vault.value_pct = vault.value / total_pool_value);
+        let total_secondary_vault_value_pct = total_secondary_vault_value / total_pool_value;
+        let market_pnl = total_pool_value - liquidity_deposits_value;
+        let market_pnl_pct = market_pnl / liquidity_deposits_value;
+        Self {
+            mint: pool_accounts_and_data.pool.mint,
+            liquidity_deposits: total_liquidity_deposits,
+            liquidity_deposits_value,
+            main_vault_balance,
+            main_vault_value,
+            main_vault_value_pct,
+            secondary_vaults,
+            total_secondary_vault_value,
+            total_secondary_vault_value_pct,
+            total_pool_value,
+            market_pnl,
+            market_pnl_pct,
+        }
+    }
+}
+
+impl From<&MarketMakingReport> for MarketMakingReport {
+    fn from(value: &MarketMakingReport) -> Self {
+        value.clone()
+    }
+}
+
+mod decimal_to_str {
+    use serde::{self, Serializer};
+    use rust_decimal::Decimal;
+
+    pub fn serialize<S>(decimal: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let s = format!("{}", decimal);
+        serializer.serialize_str(&s)
     }
 }
