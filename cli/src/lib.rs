@@ -1274,6 +1274,13 @@ impl Opt {
             }
             Subcommand::GetOraclePriceHistory { address, raw, json } => {
                 let price_history = get_oracle_price_history_blocking(&address, &client)?;
+                let slot = client.get_slot()?;
+                let latest_price = price_history.latest_price()?;
+                println!("We are at slot {}, latest price is at slot {}, difference of {}",
+                     slot,
+                     latest_price.slot,
+                     slot - latest_price.slot,
+                );
                 cli_display::<_, OraclePriceHistoryRawData, OraclePriceHistoryUiData>(
                     &[(address, price_history)], raw, json)?;
             }
