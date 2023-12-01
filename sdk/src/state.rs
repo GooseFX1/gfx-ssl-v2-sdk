@@ -130,7 +130,7 @@ pub fn get_account_metas_for_swap(
     let ssl_out_main_vault = get_associated_token_address(&ssl_pool_out_signer, &mint_out);
     let ssl_out_secondary_vault = get_associated_token_address(&ssl_pool_out_signer, &mint_in);
 
-    gfx_ssl_v2_interface::accounts::Swap {
+    let ret = gfx_ssl_v2_interface::accounts::Swap {
         pair,
         pool_registry,
         user_wallet,
@@ -151,5 +151,7 @@ pub fn get_account_metas_for_swap(
         event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
-    .to_account_metas(None)
+    .to_account_metas(None);
+    println!("ret: {:?}", ret);
+    ret
 }

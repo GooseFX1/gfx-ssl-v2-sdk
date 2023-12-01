@@ -12,12 +12,15 @@ use gfx_ssl_v2_interface::{
 use gfx_ssl_v2_sdk::instructions::*;
 use gfx_ssl_v2_sdk::state::*;
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcSendTransactionConfig;
 use solana_devtools_cli_config::{CommitmentArg, KeypairArg, UrlArg};
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::compute_budget::ComputeBudgetInstruction;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
+use std::str::FromStr;
 use gfx_ssl_v2_interface::utils::token_amount;
 use crate::ssl_types::PoolRegistryConfig;
 
@@ -135,20 +138,18 @@ pub enum Subcommand {
         /// encoded transaction message, useful for multisig proposals.
         #[clap(long)]
         print_only: bool,
-        #[clap(parse(try_from_str=Pubkey::try_from))]
-        pool_registry: Pubkey,
         /// The pair to configure
         #[clap(long, parse(try_from_str=Pubkey::try_from))]
         pair: Pubkey,
-        /// The mint whose parameters to reconfigure
-        #[clap(long, parse(try_from_str=Pubkey::try_from))]
-        mint: Pubkey,
-        /// Configures the pair to a new fee destination.
-        #[clap(long, parse(try_from_str=Pubkey::try_from))]
-        fee_destination: Option<Pubkey>,
-        #[clap(long)]
-        /// Configures the pair to a new fee BPS for the specified mint.
-        fee_bps: Option<u16>,
+        // /// The mint whose parameters to reconfigure
+        // #[clap(long, parse(try_from_str=Pubkey::try_from))]
+        // mint: Pubkey,
+        // /// Configures the pair to a new fee destination.
+        // #[clap(long, parse(try_from_str=Pubkey::try_from))]
+        // fee_destination: Option<Pubkey>,
+        // #[clap(long)]
+        // /// Configures the pair to a new fee BPS for the specified mint.
+        // fee_bps: Option<u16>,
     },
     /// Crank all price histories under a pool registry.
     /// This is compute-intensive and likely will not succeed
@@ -433,7 +434,7 @@ impl Opt {
         let app = Opt::into_app();
         let matches = app.get_matches();
         let rpc_url = self.rpc_url.resolve()?;
-        let commitment = self.commitment.resolve()?;
+        let commitment = CommitmentConfig{commitment: solana_sdk::commitment_config::CommitmentLevel::Finalized};
         let client = RpcClient::new_with_commitment(rpc_url, commitment);
         let signer = self.keypair.resolve(&matches)?;
         let signer_pubkey = signer.pubkey();
@@ -715,12 +716,9 @@ impl Opt {
             }
             Subcommand::ConfigPair {
                 print_only,
-                pool_registry,
-                pair,
-                mint,
-                fee_destination,
-                fee_bps,
+                pair
             } => {
+                let pool_registry = Pubkey::from_str("F451mjRqGEu1azbj46v4FuMEt1CacaPHQKUHzuTqKp4R").unwrap();
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)
                     .map_err(|e| {
                         anyhow!("Failed to get pool registry at {}: {}", pool_registry, e)
@@ -728,32 +726,32 @@ impl Opt {
                 let pair = get_pair_blocking(&pair, &client)
                     .map_err(|e| anyhow!("Failed to fetch the specified pair: {}", e))?;
                 // Check whether the specified mint is mint one, mint two, or not found.
-                let mut is_mint_one = false;
-                if pair.mints.0 == mint {
-                    is_mint_one = true;
-                } else if pair.mints.1 != mint {
-                    return Err(anyhow!("Mint not found in pair"));
-                }
+                // let mut is_mint_one = false;
+                // if pair.mints.0 == mint {
+                //     is_mint_one = true;
+                // } else if pair.mints.1 != mint {
+                //     return Err(anyhow!("Mint not found in pair"));
+                // }
 
-                let (mint_one_fee_rate, mint_two_fee_rate) = if is_mint_one {
-                    (fee_bps, None)
-                } else {
-                    (None, fee_bps)
-                };
-                let (mint_one_fee_dest, mint_two_fee_dest) = if is_mint_one {
-                    (fee_destination, None)
-                } else {
-                    (None, fee_destination)
-                };
+                // let (mint_one_fee_rate, mint_two_fee_rate) = if is_mint_one {
+                //     (fee_bps, None)
+                // } else {
+                //     (None, fee_bps)
+                // };
+                // let (mint_one_fee_dest, mint_two_fee_dest) = if is_mint_one {
+                //     (fee_destination, None)
+                // } else {
+                //     (None, fee_destination)
+                // };
                 let ix = config_pair(
                     pool_registry_data.admin,
                     pool_registry,
                     pair.mints.0,
                     pair.mints.1,
-                    mint_one_fee_rate,
-                    mint_two_fee_rate,
-                    mint_one_fee_dest,
-                    mint_two_fee_dest,
+                    Some(10 as u16),
+                    Some(10 as u16),
+                    Some(Pubkey::default()),
+                    Some(Pubkey::default()),
                 );
                 if print_only {
                     let message = Message::new(&[ix], None);
@@ -1100,7 +1098,7 @@ impl Opt {
                     &vec![signer],
                     client.get_latest_blockhash()?,
                 );
-                let signature = client.send_transaction(&tx).map_err(|e| {
+                let signature = client.send_transaction_with_config(&tx, RpcSendTransactionConfig {skip_preflight: false, preflight_commitment: None, encoding: None, max_retries: None, min_context_slot: None}).map_err(|e| {
                     println!("{:#?}", &e);
                     e
                 })?;

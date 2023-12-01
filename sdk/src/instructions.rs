@@ -568,6 +568,7 @@ pub fn swap(
     fee_destination: Pubkey,
 ) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::Swap { amount_in, min_out }.data();
+    println!("before returning instruction DATA {:?}", data);
 
     Instruction {
         program_id: gfx_ssl_v2_interface::ID,
