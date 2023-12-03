@@ -19,12 +19,34 @@ use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
+use crate::ssl_types::PoolRegistryConfig;
 
 #[derive(Parser, Debug)]
 pub enum Subcommand {
     /// Create a new pool registry. The `-k/--keypair` signer
     /// is hardcoded as the lamport funder for the new account.
     CreatePoolRegistry,
+    CreateEventEmitter {
+        /// Instead of executing a transaction, just print a base-58
+        /// encoded transaction message, useful for multisig proposals.
+        #[clap(long)]
+        print_only: bool,
+        /// Defaults to the -k/--keypair argument or Solana CLI configured signer.
+        #[clap(long, parse(try_from_str=Pubkey::try_from))]
+        funder: Option<Pubkey>,
+    },
+    /// Configure pool registry parameters.
+    ConfigPoolRegistry {
+        /// Instead of executing a transaction, just print a base-58
+        /// encoded transaction message, useful for multisig proposals.
+        #[clap(long)]
+        print_only: bool,
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Path to a JSON file containing the mathematical parameters
+        /// used for price calculation.
+        json_params_path: String,
+    },
     /// Create a new SSL pool for a given pool registry.
     CreateSsl {
         /// Instead of executing a transaction, just print a base-58
@@ -64,10 +86,6 @@ pub enum Subcommand {
         /// A BPS value, expressing minimum total distance from the latest oracle price.
         #[clap(long)]
         minimum_price_distance: Option<u16>,
-        /// A BPS value, expressing the maximum ratio of USD-normalized token value
-        /// of any SSL pool's non-main token balance compared to the main token.
-        #[clap(long)]
-        max_pool_token_ratio: Option<u16>,
         /// A BPS value, expressing how much of the standard deviation to add
         /// to the price calculation.
         #[clap(long)]
@@ -435,6 +453,70 @@ impl Opt {
                 })?;
                 println!("{}", signature);
             }
+            Subcommand::CreateEventEmitter { print_only, funder } => {
+                let ix = create_event_emitter(funder.unwrap_or(signer_pubkey));
+                if print_only {
+                    let message = Message::new(&[ix], None);
+                    println!(
+                        "{}",
+                        solana_sdk::bs58::encode(message.serialize()).into_string()
+                    );
+                } else {
+                    let tx = Transaction::new_signed_with_payer(
+                        &[ix],
+                        Some(&signer_pubkey),
+                        &vec![signer],
+                        client.get_latest_blockhash()?,
+                    );
+                    let signature = client.send_transaction(&tx).map_err(|e| {
+                        println!("{:#?}", &e);
+                        e
+                    })?;
+                    println!("{}", signature);
+                }
+            }
+            Subcommand::ConfigPoolRegistry {
+                print_only,
+                pool_registry,
+                json_params_path,
+            } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)
+                    .map_err(|e| {
+                        anyhow!("Failed to get pool registry at {}: {}", pool_registry, e)
+                    })?;
+                let admin = pool_registry_data.admin;
+                let json = &fs::read_to_string(json_params_path).map_err(|e| {
+                    anyhow!("Failed to read the SSL creation params JSON file: {}", e)
+                })?;
+                let config: PoolRegistryConfig = serde_json::from_str(json)
+                    .map_err(|e| anyhow!("Failed to deserialize Pool config params: {}", e))?;
+                let config: gfx_ssl_v2_interface::PoolRegistryConfig = config.into();
+                let ix = config_pool_registry(
+                    config,
+                    admin,
+                    pool_registry,
+                );
+
+                if print_only {
+                    let message = Message::new(&[ix], None);
+                    println!(
+                        "{}",
+                        solana_sdk::bs58::encode(message.serialize()).into_string()
+                    );
+                } else {
+                    let tx = Transaction::new_signed_with_payer(
+                        &[ix],
+                        Some(&signer_pubkey),
+                        &vec![signer],
+                        client.get_latest_blockhash()?,
+                    );
+                    let signature = client.send_transaction(&tx).map_err(|e| {
+                        println!("{:#?}", &e);
+                        e
+                    })?;
+                    println!("{}", signature);
+                }
+            }
             Subcommand::CreateSsl {
                 print_only,
                 pool_registry,
@@ -518,7 +600,6 @@ impl Opt {
                 std_window,
                 fixed_price_distance,
                 minimum_price_distance,
-                max_pool_token_ratio,
                 std_weight,
                 latest_price_weight,
             } => {
@@ -533,7 +614,6 @@ impl Opt {
                     std_window,
                     fixed_price_distance,
                     minimum_price_distance,
-                    max_pool_token_ratio,
                     std_weight,
                     latest_price_weight,
                 };

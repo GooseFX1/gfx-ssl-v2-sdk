@@ -1552,7 +1552,7 @@ dependencies = [
 
 [[package]]
 name = "gfx-ssl-v2-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-lang 0.27.0",
  "anchor-spl 0.27.0",
@@ -1570,7 +1570,7 @@ dependencies = [
 
 [[package]]
 name = "gfx-ssl-v2-interface"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-lang 0.27.0",
  "anchor-spl 0.27.0",
@@ -1590,7 +1590,7 @@ dependencies = [
 
 [[package]]
 name = "gfx-ssl-v2-sdk"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-client",
  "anchor-spl 0.27.0",

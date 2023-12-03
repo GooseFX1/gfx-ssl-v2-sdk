@@ -66,7 +66,8 @@ impl Into<u8> for SSLPoolStatus {
 
 /// Classifies assets into various categories.
 /// These values are inert in the first release of the SSLv2 protocol.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AnchorSerialize, AnchorDeserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AnchorSerialize, AnchorDeserialize)]
 #[repr(C)]
 pub enum AssetType {
     /// Indicates that a given [SSLPool] entry in the [PoolRegistry] is blank, i.e. all zeroes.

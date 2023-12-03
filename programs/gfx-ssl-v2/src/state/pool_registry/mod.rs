@@ -1,5 +1,6 @@
 pub mod math_params;
 pub mod ssl_pool;
+pub mod token_ratio_category;
 
 use crate::PDAIdentifier;
 use anchor_lang::prelude::*;
@@ -13,6 +14,7 @@ pub use crate::state::liquidity_account::LiquidityAccount;
 use crate::SSLV2Error;
 pub use math_params::{SSLMathConfig, SSLMathParams};
 pub use ssl_pool::{AssetType, SSLPool, SSLPoolStatus};
+use crate::token_ratio_category::MaxPoolTokenRatio;
 
 /// We need to enforce a maximum number of pools per admin
 /// because of Solana's on-chain compute limitations.
@@ -37,11 +39,14 @@ pub struct PoolRegistry {
     pub _pad0: [u8; 7],
     pub num_entries: u32,
     pub _pad1: [u8; 4],
-    pub _space: [u8; 128],
+    pub categorical_pool_token_ratios: [u16; 16],
+    pub _space: [u8; 96],
     /// A list of oracles whose mints are offered as SSL pools under the domain of a given
     /// admin.
     pub entries: [SSLPool; MAX_SSL_POOLS_PER_ADMIN],
 }
+
+const _: [u8; 9200] = [0u8; std::mem::size_of::<PoolRegistry>()];
 
 // Manually implemented because you can't directly derive or impl
 // Default for an array.
@@ -132,4 +137,13 @@ impl PoolRegistry {
         }
         return err!(SSLV2Error::MintNotFound);
     }
+}
+
+/// For the `config_pool_registry` instruction
+#[derive(Clone, Debug, Default, AnchorDeserialize, AnchorSerialize)]
+#[repr(C)]
+pub struct PoolRegistryConfig {
+    pub new_admin: Option<Pubkey>,
+    pub new_suspend_admin: Option<Pubkey>,
+    pub max_pool_token_ratios: Vec<MaxPoolTokenRatio>,
 }

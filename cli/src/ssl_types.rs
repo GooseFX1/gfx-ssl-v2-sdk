@@ -1,6 +1,8 @@
 use crate::pubkey_str::pubkey;
 use anchor_lang::prelude::Pubkey;
 use serde::{Deserialize, Serialize};
+use gfx_ssl_v2_interface::token_ratio_category;
+use gfx_ssl_v2_interface::token_ratio_category::ASSET_TYPES;
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct CreateSSLParams {
@@ -33,6 +35,16 @@ pub enum AssetType {
     Stable,
 }
 
+impl Into<gfx_ssl_v2_interface::AssetType> for AssetType {
+    fn into(self) -> gfx_ssl_v2_interface::AssetType {
+        match self {
+            AssetType::BlueChip => gfx_ssl_v2_interface::AssetType::BlueChip,
+            AssetType::Volatile => gfx_ssl_v2_interface::AssetType::Volatile,
+            AssetType::Stable => gfx_ssl_v2_interface::AssetType::Stable,
+        }
+    }
+}
+
 /// Intended to be deserialized from a JSON file.
 /// See program library for documentation on these fields.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -53,9 +65,9 @@ impl Into<gfx_ssl_v2_interface::SSLMathParams> for SSLMathParams {
             std_window: self.std_window,
             fixed_price_distance: self.fixed_price_distance,
             minimum_price_distance: self.minimum_price_distance,
-            max_pool_token_ratio: self.max_pool_token_ratio,
             std_weight: self.std_weight as u32,
             latest_price_weight: self.latest_price_weight,
+            _deprecated: 0,
             _pad0: [0; 6],
             _space: [0; 32],
             _pad1: [0; 4],
@@ -77,4 +89,46 @@ pub struct PairMintParams {
     pub fee_destination: Pubkey,
     /// In basis-points, max 10,000
     pub fee_bps: u16,
+}
+
+
+/// Intended to be deserialized from a JSON file.
+/// See program library for documentation on these fields.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct PoolRegistryConfig (Vec<MaxPoolTokenRatio>);
+
+/// For Anchor instruction encoding.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[repr(C)]
+pub struct MaxPoolTokenRatio {
+    pub input_token: AssetType,
+    pub output_token: AssetType,
+    pub pool_token_ratio: u16,
+}
+
+impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
+    fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
+        let input_token = ASSET_TYPES
+            .iter().position(|t| *t == self.input_token.into()).unwrap() as u8;
+        let output_token = ASSET_TYPES
+            .iter().position(|t| *t == self.output_token.into()).unwrap() as u8;
+        token_ratio_category::MaxPoolTokenRatio {
+            input_token,
+            output_token,
+            pool_token_ratio: self.pool_token_ratio,
+        }
+    }
+}
+
+impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
+    fn into(self) -> gfx_ssl_v2_interface::PoolRegistryConfig {
+        gfx_ssl_v2_interface::PoolRegistryConfig {
+            new_admin: None,
+            new_suspend_admin: None,
+            max_pool_token_ratios: self.0
+                .into_iter()
+                .map(|r| r.into())
+                .collect(),
+        }
+    }
 }

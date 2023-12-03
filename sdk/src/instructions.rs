@@ -10,7 +10,7 @@ use anchor_spl::{
 };
 use gfx_ssl_v2_interface::{
     pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig,
-    SSLMathParams, SSLPool,
+    SSLMathParams, SSLPool, PoolRegistryConfig, EventEmitter
 };
 
 pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
@@ -25,6 +25,45 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
         system_program: system_program::ID,
     }
     .to_account_metas(None);
+
+    Instruction {
+        program_id: gfx_ssl_v2_interface::ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn create_event_emitter(
+    funder: Pubkey,
+) -> Instruction {
+    let data = gfx_ssl_v2_interface::instruction::CreateEventEmitter.data();
+
+    let accounts = gfx_ssl_v2_interface::accounts::CreateEventEmitter {
+        funder,
+        event_emitter: EventEmitter::address(),
+        system_program: system_program::ID,
+    }
+        .to_account_metas(None);
+
+    Instruction {
+        program_id: gfx_ssl_v2_interface::ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn config_pool_registry(
+    config: PoolRegistryConfig,
+    admin: Pubkey,
+    pool_registry: Pubkey,
+) -> Instruction {
+    let data = gfx_ssl_v2_interface::instruction::ConfigPoolRegistry { config }.data();
+
+    let accounts = gfx_ssl_v2_interface::accounts::ConfigPoolRegistry {
+        admin,
+        pool_registry,
+    }
+        .to_account_metas(None);
 
     Instruction {
         program_id: gfx_ssl_v2_interface::ID,
@@ -365,7 +404,6 @@ pub fn internal_swap(
     let ssl_b_main_token = get_associated_token_address(&ssl_pool_b_signer, &m2);
     let ssl_a_secondary_token = get_associated_token_address(&ssl_pool_a_signer, &m2);
     let ssl_b_secondary_token = get_associated_token_address(&ssl_pool_b_signer, &m1);
-
     let accounts = gfx_ssl_v2_interface::accounts::InternalSwap {
         pair,
         pool_registry,
@@ -379,10 +417,10 @@ pub fn internal_swap(
         token_b_oracle: oracle2,
         token_a_price_history,
         token_b_price_history,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
-
     Instruction {
         program_id: gfx_ssl_v2_interface::ID,
         accounts,
@@ -403,6 +441,7 @@ pub fn claim_fees(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey) -> Instruc
         liquidity_account,
         pool_registry,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
@@ -424,6 +463,7 @@ pub fn create_liquidity_account(pool_registry: Pubkey, owner: Pubkey, mint: Pubk
         mint,
         owner,
         pool_registry,
+        event_emitter: EventEmitter::address(),
         system_program: system_program::ID,
     }
     .to_account_metas(None);
@@ -446,6 +486,7 @@ pub fn close_liquidity_account(
         liquidity_account,
         owner,
         rent_recipient,
+        event_emitter: EventEmitter::address(),
         system_program: system_program::ID,
     }
     .to_account_metas(None);
@@ -474,6 +515,7 @@ pub fn deposit(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey, amount: u64) 
         ssl_pool_signer,
         pool_vault,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
@@ -502,6 +544,7 @@ pub fn withdraw(pool_registry: Pubkey, owner: Pubkey, mint: Pubkey, amount: u64)
         ssl_pool_signer,
         pool_vault,
         ssl_fee_vault,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None);
