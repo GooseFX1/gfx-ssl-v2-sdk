@@ -13,7 +13,6 @@ pub struct SSLMathConfig {
     pub std_window: Option<u8>,
     pub fixed_price_distance: Option<u16>,
     pub minimum_price_distance: Option<u16>,
-    pub max_pool_token_ratio: Option<u16>,
     pub std_weight: Option<u32>,
     pub latest_price_weight: Option<u16>,
 }
@@ -48,7 +47,7 @@ pub struct SSLMathParams {
     /// Maximum allowed ratio of this SSL's main token residing in other pools divided
     /// by the amount of main token in this SSL pool.
     /// This number is a percentage expressed in BPS.
-    pub max_pool_token_ratio: u16,
+    pub _deprecated: u16,
 
     /// A weight that controls the price influence ratio between
     /// the mean price and the latest price.
@@ -93,9 +92,6 @@ impl SSLMathParams {
         if let Some(val) = config.minimum_price_distance {
             self.minimum_price_distance = val;
         }
-        if let Some(val) = config.max_pool_token_ratio {
-            self.max_pool_token_ratio = val;
-        }
         if let Some(val) = config.std_weight {
             self.std_weight = val;
         }
@@ -114,7 +110,6 @@ impl SSLMathParams {
         std_window: u8,
         fixed_price_distance: u16,
         minimum_price_distance: u16,
-        max_pool_token_ratio: u16,
         latest_price_weight: u16,
         std_weight: u32,
     ) -> Self {
@@ -123,8 +118,8 @@ impl SSLMathParams {
             std_window,
             fixed_price_distance,
             minimum_price_distance,
-            max_pool_token_ratio,
             latest_price_weight,
+            _deprecated: 0,
             _pad0: [0; 6],
             std_weight,
             _pad1: [0; 4],
@@ -141,7 +136,6 @@ impl Display for SSLMathParams {
         writeln!(f, "Standard deviation weight {}", self.std_weight)?;
         writeln!(f, "Fixed price distance {}", self.fixed_price_distance)?;
         writeln!(f, "Minimum price distance {}", self.minimum_price_distance)?;
-        writeln!(f, "Maximum pool token ration {}", self.max_pool_token_ratio)?;
         write!(f, "Latest price weight {}", self.latest_price_weight)?;
 
         Ok(())

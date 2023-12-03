@@ -8,9 +8,12 @@ pub mod create_pool_registry;
 pub mod create_ssl;
 pub mod internal_swap;
 pub mod suspend_ssl;
+pub mod config_pool_registry;
+pub mod create_event_emitter;
 
 pub use create_pool_registry::*;
-
+pub use create_event_emitter::*;
+pub use config_pool_registry::*;
 pub use config_ssl::*;
 pub use config_suspend_admin::*;
 pub use create_ssl::*;

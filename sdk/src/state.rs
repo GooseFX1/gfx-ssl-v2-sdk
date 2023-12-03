@@ -148,6 +148,7 @@ pub fn get_account_metas_for_swap(
         output_token_oracle,
         input_token_price_history,
         input_token_oracle,
+        event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
     .to_account_metas(None)
