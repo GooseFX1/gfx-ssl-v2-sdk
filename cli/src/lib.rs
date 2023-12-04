@@ -340,6 +340,11 @@ pub enum Subcommand {
         #[clap(parse(try_from_str=Pubkey::try_from))]
         mint_two: Pubkey,
     },
+    GetPairAddresses {
+        /// Pool registry address from which to derive the pair address.
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+    },
     /// Print the main vault token address for an SSL Pool.
     GetSSLPoolVaultAddress {
         /// Pool registry address from which to derive the address.
@@ -1197,6 +1202,31 @@ impl Opt {
             } => {
                 let pair = Pair::address(pool_registry, mint_one, mint_two);
                 println!("{}", pair);
+            }
+            Subcommand::GetPairAddresses {
+                pool_registry,
+            } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let mints = (0..pool_registry_data.num_entries)
+                    .map(|index| {
+                        let pool = &pool_registry_data.entries[index as usize];
+                        pool.mint
+                    })
+                    .collect::<Vec<Pubkey>>();
+                let mut printed: Vec<Pubkey> = vec![];
+                mints
+                    .iter()
+                    .for_each(|mint_a| {
+                        mints.iter().for_each(|mint_b| {
+                            if *mint_a != *mint_b {
+                                let pair = Pair::address(pool_registry, *mint_a, *mint_b);
+                                if !printed.contains(&pair) {
+                                    println!("{}", pair);
+                                    printed.push(pair);
+                                }
+                            }
+                        })
+                    })
             }
             Subcommand::GetSSLPoolVaultAddress {
                 pool_registry,
