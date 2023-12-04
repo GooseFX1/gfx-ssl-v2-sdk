@@ -15,7 +15,11 @@ LD_LIBRARY_PATH = "./lib/darwin/arm64:$LD_LIBRARY_PATH"
 args = ["build", "-p", "gfx-ssl-v2-cli"]
 command = "cargo"
 
+[tasks.build_cli_release]
+args = ["build", "-p", "gfx-ssl-v2-cli", "--release"]
+command = "cargo"
+
 [tasks.build_sdk]
-args = ["build", "-p", "gfx-ssl-v2-cli"]
+args = ["build", "-p", "gfx-ssl-v2-sdk"]
 command = "cargo"
 

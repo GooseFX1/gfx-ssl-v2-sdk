@@ -17,6 +17,10 @@ use std::fmt::{Display, Formatter};
 pub const MAX_NUM_ORACLES_PER_MINT: usize = 3;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, AnchorSerialize, AnchorDeserialize)]
+#[cfg_attr(
+    feature = "no-entrypoint",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[repr(C)]
 pub enum SSLPoolStatus {
     /// Indicates that a given [SSLPool] entry in the [PoolRegistry] is blank, i.e. all zeroes.
@@ -68,6 +72,10 @@ impl Into<u8> for SSLPoolStatus {
 /// These values are inert in the first release of the SSLv2 protocol.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[derive(AnchorSerialize, AnchorDeserialize)]
+#[cfg_attr(
+    feature = "no-entrypoint",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[repr(C)]
 pub enum AssetType {
     /// Indicates that a given [SSLPool] entry in the [PoolRegistry] is blank, i.e. all zeroes.
@@ -190,7 +198,7 @@ impl Display for SSLPool {
         for (idx, entry) in self.oracle_price_histories.iter().enumerate() {
             writeln!(f, "Price History {}: {}", idx, entry)?;
         }
-        write!(f, "Math params: {}", self.math_params)?;
+        write!(f, "Math params:\n {}", self.math_params)?;
 
         Ok(())
     }

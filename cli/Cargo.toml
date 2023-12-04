@@ -20,3 +20,5 @@ solana-devtools-cli-config = { git = "https://github.com/ebrightfield/solana-dev
 solana-sdk = "1.14.18"
 serde = "1.0.163"
 serde_json = "1.0.96"
+chrono = { version = "0.4.26" }
+rust_decimal = { version = "1", features = ["maths"] }

@@ -1,13 +1,18 @@
+pub mod display;
+pub mod pool_vault;
 pub mod pubkey_str;
 mod ssl_types;
 
+use crate::display::cli_display;
+use crate::display::liquidity_account::{LiquidityAccountRawData, LiquidityAccountUiData};
+use crate::display::pair::{PairAccountAndVaults, PairRawData, PairUiData};
+use crate::display::ssl_pool::{SSLPoolData, SSLPoolRawData, SSLPoolUiData};
 use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::{Mint, TokenAccount};
+use anchor_spl::token::Mint;
 use anyhow::anyhow;
 use clap::{IntoApp, Parser};
 use gfx_ssl_v2_interface::{
-    utils::token_amount,
     LiquidityAccount, OraclePriceHistory, Pair, PoolRegistry, SSLMathConfig, SSLPool,
 };
 use gfx_ssl_v2_sdk::instructions::*;
@@ -20,6 +25,7 @@ use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
 use crate::ssl_types::PoolRegistryConfig;
+use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
 
 #[derive(Parser, Debug)]
 pub enum Subcommand {
@@ -357,6 +363,12 @@ pub enum Subcommand {
     },
     /// Display the account data on a pool registry.
     GetPoolRegistry {
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
         /// The pool registry address
         #[clap(parse(try_from_str=Pubkey::try_from))]
         address: Pubkey,
@@ -364,6 +376,12 @@ pub enum Subcommand {
     /// Display the account data for a specific SSL pool.
     /// Also displays the balances of the pool's vaults.
     GetSSLPool {
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
         /// The pool registry address
         #[clap(parse(try_from_str=Pubkey::try_from))]
         pool_registry: Pubkey,
@@ -373,6 +391,12 @@ pub enum Subcommand {
     },
     /// Display the account data for a Pair account.
     GetPair {
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
         /// The pool registry address
         #[clap(parse(try_from_str=Pubkey::try_from))]
         pool_registry: Pubkey,
@@ -387,6 +411,12 @@ pub enum Subcommand {
     },
     /// Display the account data for an oracle price history account.
     GetOraclePriceHistory {
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
         /// Address of the price history account. Use `get-pool-registry`
         /// or `get-ssl-pool` to find the desired address.
         #[clap(parse(try_from_str=Pubkey::try_from))]
@@ -394,6 +424,12 @@ pub enum Subcommand {
     },
     /// Display the account data for a liquidity account.
     GetLiquidityAccount {
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
         /// The pool registry address
         #[clap(parse(try_from_str=Pubkey::try_from))]
         pool_registry: Pubkey,
@@ -414,9 +450,17 @@ pub enum Subcommand {
         /// Defaults to the -k/--keypair argument or Solana CLI configured signer.
         #[clap(long, parse(try_from_str=Pubkey::try_from))]
         owner: Option<Pubkey>,
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
     },
 }
 
+/// This is the GFX SSLv2 CLI tool. It allows for interaction with the GFX SSLv2 protocol,
+/// and for reading blockchain state associated with the program.
 #[derive(Parser, Debug)]
 pub struct Opt {
     #[clap(flatten)]
@@ -548,7 +592,10 @@ impl Opt {
                 // Convert from Clap type to program type (necessary because of deserialization from CLI)
                 let oracle_type = match oracle_type {
                     ssl_types::OracleType::Pyth => gfx_ssl_v2_interface::OracleType::Pyth,
-                    ssl_types::OracleType::Switchboard => gfx_ssl_v2_interface::OracleType::Switchboardv2,
+                    ssl_types::OracleType::Switchboard => {
+                        gfx_ssl_v2_interface::OracleType::Switchboardv2
+                    }
+                    _ => gfx_ssl_v2_interface::OracleType::Invalid,
                 };
                 let asset_type = match asset_type {
                     ssl_types::AssetType::BlueChip => gfx_ssl_v2_interface::AssetType::BlueChip,
@@ -1166,63 +1213,28 @@ impl Opt {
                 let liquidity_account = LiquidityAccount::address(pool_registry, mint, owner);
                 println!("{}", liquidity_account);
             }
-            Subcommand::GetPoolRegistry { address } => {
+            Subcommand::GetPoolRegistry { address, raw, json } => {
                 let pool_registry = get_pool_registry_blocking(&address, &client)?;
                 pool_registry
                     .entries
                     .into_iter()
                     .filter(|pool| *pool != SSLPool::default())
                     .for_each(|pool| {
-                        println!("{}", pool);
-                        let main_vault = SSLPool::vault_address(address, pool.mint);
-                        let main_vault_balance = client
-                            .get_token_account_balance(&main_vault)
-                            .map_err(|_| anyhow!("Unable to fetch main vault token balance"))
-                            .unwrap();
-                        println!(
-                            "Main vault ({}) balance: {}",
-                            main_vault, main_vault_balance.ui_amount_string
-                        );
-                        let other_pools: Vec<SSLPool> = pool_registry
-                            .entries
-                            .into_iter()
-                            .filter(|other_pool| *other_pool != SSLPool::default())
-                            .filter(|other_pool| other_pool.mint != pool.mint)
-                            .collect();
-                        let secondary_vaults: Vec<Pubkey> = other_pools
-                            .iter()
-                            .map(|other_pool| {
-                                SSLPool::secondary_token_vault_address(
-                                    address,
-                                    pool.mint,
-                                    other_pool.mint,
-                                )
-                            })
-                            .collect();
-                        let accounts = client.get_multiple_accounts(&secondary_vaults).unwrap();
-                        accounts
-                            .into_iter()
-                            .zip(other_pools)
-                            .filter(|(act, _)| act.is_some())
-                            .for_each(|(act, pool)| {
-                                let act = act.unwrap();
-                                let token_act =
-                                    TokenAccount::try_deserialize(&mut &act.data[..]).unwrap();
-                                let ui_amount = token_amount::to_ui(
-                                    token_act.amount,
-                                    pool.mint_decimals as u32,
-                                );
-                                println!(
-                                    "secondary vault for mint {} balance: {}",
-                                    pool.mint, ui_amount,
-                                );
-                            });
-                        println!("---");
+                        let pool_accounts_and_data =
+                            SSLPoolData::from_rpc_client(pool, address, pool_registry, &client);
+                        cli_display::<_, SSLPoolRawData, SSLPoolUiData>(
+                            &[pool_accounts_and_data],
+                            raw,
+                            json,
+                        )
+                        .unwrap();
                     })
             }
             Subcommand::GetSSLPool {
                 pool_registry,
                 mint,
+                raw,
+                json,
             } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
                 let pool = pool_registry_data.find_pool(mint).map_err(|_| {
@@ -1232,89 +1244,77 @@ impl Opt {
                         pool_registry_data,
                     )
                 })?;
-                println!("{}", pool);
-                let main_vault = SSLPool::vault_address(pool_registry, pool.mint);
-                let main_vault_balance = client
-                    .get_token_account_balance(&main_vault)
-                    .map_err(|_| anyhow!("Unable to fetch main vault token balance"))?;
-                println!(
-                    "Main vault ({}) balance: {}",
-                    main_vault, main_vault_balance.ui_amount_string
-                );
-                let other_pools: Vec<SSLPool> = pool_registry_data
-                    .entries
-                    .into_iter()
-                    .filter(|pool| *pool != SSLPool::default())
-                    .filter(|pool| pool.mint != mint)
-                    .collect();
-                let secondary_vaults: Vec<Pubkey> = other_pools
-                    .iter()
-                    .map(|pool| {
-                        SSLPool::secondary_token_vault_address(pool_registry, mint, pool.mint)
-                    })
-                    .collect();
-                let accounts = client.get_multiple_accounts(&secondary_vaults)?;
-                accounts
-                    .into_iter()
-                    .zip(other_pools)
-                    .filter(|(act, _)| act.is_some())
-                    .for_each(|(act, pool)| {
-                        let act = act.unwrap();
-                        let token_act = TokenAccount::try_deserialize(&mut &act.data[..]).unwrap();
-                        let ui_amount =
-                            token_amount::to_ui(token_act.amount, pool.mint_decimals as u32);
-                        println!(
-                            "secondary vault for mint {} balance: {}",
-                            pool.mint, ui_amount,
-                        );
-                    })
+                let pool_accounts_and_data =
+                    SSLPoolData::from_rpc_client(*pool, pool_registry, pool_registry_data, &client);
+                cli_display::<_, SSLPoolRawData, SSLPoolUiData>(
+                    &[pool_accounts_and_data],
+                    raw,
+                    json,
+                )
+                .unwrap();
             }
             Subcommand::GetPair {
                 pool_registry,
                 mint_one,
                 mint_two,
+                raw,
+                json,
             } => {
-                let pair =
-                    get_pair_blocking(&Pair::address(pool_registry, mint_one, mint_two), &client)?;
-                print!("{}", pair);
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let pair_address = Pair::address(pool_registry, mint_one, mint_two);
+                let pair = get_pair_blocking(&pair_address, &client)?;
+                let pair_account_and_vaults = PairAccountAndVaults::from_rpc_client(
+                    pair_address,
+                    pair,
+                    pool_registry_data,
+                    &client,
+                )?;
+                cli_display::<_, PairRawData, PairUiData>(&[pair_account_and_vaults], raw, json)?;
             }
-            Subcommand::GetOraclePriceHistory { address } => {
+            Subcommand::GetOraclePriceHistory { address, raw, json } => {
                 let price_history = get_oracle_price_history_blocking(&address, &client)?;
-                print!("{}", price_history);
+                cli_display::<_, OraclePriceHistoryRawData, OraclePriceHistoryUiData>(
+                    &[(address, price_history)], raw, json)?;
             }
             Subcommand::GetLiquidityAccount {
                 pool_registry,
                 mint,
                 owner,
+                raw,
+                json,
             } => {
                 let liquidity_account_addr =
                     LiquidityAccount::address(pool_registry, mint, owner.unwrap_or(signer_pubkey));
                 let liquidity_account =
                     get_liquidity_account_blocking(&liquidity_account_addr, &client)?;
-
-                print!("{}", liquidity_account);
+                cli_display::<_, LiquidityAccountRawData, LiquidityAccountUiData>(
+                    &[(liquidity_account_addr, liquidity_account)],
+                    raw,
+                    json,
+                )?;
             }
             Subcommand::GetLiquidityAccounts {
                 pool_registry,
                 owner,
+                raw,
+                json,
             } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
-                for i in 0..pool_registry_data.num_entries {
-                    let pool = &pool_registry_data.entries[i as usize];
-                    let liquidity_account_addr = LiquidityAccount::address(
-                        pool_registry,
-                        pool.mint,
-                        owner.unwrap_or(signer_pubkey),
-                    );
-                    let liquidity_account =
-                        get_liquidity_account_blocking(&liquidity_account_addr, &client);
-                    match liquidity_account {
-                        Ok(data) => println!("{}", data),
-                        Err(_) => {
-                            println!("No liquidity account for mint {}", pool.mint)
-                        }
-                    }
-                }
+                let accounts = (0..pool_registry_data.num_entries)
+                    .flat_map(|i| {
+                        let pool = &pool_registry_data.entries[i as usize];
+                        let liquidity_account_addr = LiquidityAccount::address(
+                            pool_registry,
+                            pool.mint,
+                            owner.unwrap_or(signer_pubkey),
+                        );
+                        get_liquidity_account_blocking(&liquidity_account_addr, &client)
+                            .map(|act| (liquidity_account_addr, act))
+                    })
+                    .collect::<Vec<_>>();
+                cli_display::<_, LiquidityAccountRawData, LiquidityAccountUiData>(
+                    &accounts, raw, json,
+                )?;
             }
         }
         Ok(())

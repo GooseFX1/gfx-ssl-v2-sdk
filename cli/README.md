@@ -3,9 +3,9 @@
 
 This command-line interface provides a means of:
 - Constructing base58 transaction messages for permissioned program admin instructions.
-- Executing non-permissioned instructions.
-- Introspecting on on-chain state.
-- Deriving PDAs for various account types.
+- Executing the non-permissioned user instructions.
+- Fetching and displaying on-chain program account state.
+- Deriving and displaying the addresses of various PDA account types.
 
 Its usage is thoroughly documented in help text:
 ```
@@ -18,25 +18,23 @@ gfx-ssl <subcommand> --help
 
 
 ## Build
-For a standard debug build for local development
-(including subcommands for `test-instructions` program),
+For a standard debug build for local development,
 you can just use a cargo-make command from the root of the repo:
 
 ```
 cargo make build_cli
 ```
 
-For a devnet build that includes subcommands for `test-instructions`:
+Or for a release build with a smaller footprint:
 ```
-cargo build -p gfx-ssl-v2-cli --release --features test-instructions
+cargo build -p gfx-ssl-v2-cli --release
 ```
-
-The above command is suitable for mainnet builds as well. If you don't want the `test-instructions` subcommands, just leave out the `--features` arg.
 
 ## Example JSON data
-Some subcommands require paths to JSON files with configuration state. This allows for easy versioning and for others to procure desired configuration state and delegate the CLI execution to another developer.
+Some subcommands require paths to JSON files with configuration state.
 
-Some numerical values are integers in basis-points. See the subsection below for explicit clarification.
+Some numerical values are integers in basis-points.
+See the subsection below for explicit clarification.
 
 ### Create SSL
 ```
@@ -90,13 +88,14 @@ The `fee_bps` is in basis-points.
 ]
 ```
 
-### Basis-points Values
+### How Basis-points Values are Represented
 Basis-points are hundredths of a percent.
+We represent them in whole-number values.
 
 Examples:
-10,000 == 100%
-1,000 = 10%
-100 == 1%
-10 = 0.1%
-1 == 0.01%
+- 10,000 == 100%
+- 1,000 = 10%
+- 100 == 1%
+- 10 = 0.1%
+- 1 == 0.01%
 

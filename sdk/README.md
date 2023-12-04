@@ -2,14 +2,10 @@
 
 ## GFX SSL v2 SDK
 
+This crate provides the following features:
+- `solana_sdk::Instruction` factory functions for SSLv2 program instructions
+- Functions to fetch blockchain state for various types of SSLv2 program accounts.
 
-### Jupiter Integration
-By default, the SDK compiles with the `jupiter_amm` feature.
-
-This feature requires that you point it to a dylib.
-
-There is a `jupiter_quote` example in `examples/jupiter_quote.rs`.
-You can run it the example with:
-```
-LD_LIBRARY_PATH="./lib/linux/x86_64" cargo run --example jupiter_quote -p gfx-ssl-v2-sdk
-```
+It leverages types exposed in the `gfx-ssl-v2-interface` program crate,
+which is a skeleton of the actual `gfx-ssl-v2` program containing the same
+instructions and data types without the program logic.
