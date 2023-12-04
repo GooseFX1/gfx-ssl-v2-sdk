@@ -20,11 +20,24 @@ pub struct CreateSSLParams {
     pub math_params: SSLMathParams,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OracleType {
     Pyth,
     Switchboard,
+    Uninitialized,
+    Invalid,
+}
+
+impl From<u8> for OracleType {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::Uninitialized,
+            1 => Self::Pyth,
+            2 => Self::Switchboard,
+            _ => Self::Invalid,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
