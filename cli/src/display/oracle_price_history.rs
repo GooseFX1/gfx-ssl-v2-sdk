@@ -1,10 +1,9 @@
 use rust_decimal::Decimal;
 use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::{HistoricalPrice, OraclePriceHistory};
+use gfx_ssl_v2_interface::{OracleType, HistoricalPrice, OraclePriceHistory};
 use crate::display::mint_ui_name;
 use crate::pubkey_str::pubkey;
-use crate::ssl_types::OracleType;
 
 #[derive(Serialize, Clone)]
 pub struct HistoricalPriceRaw {

@@ -10,6 +10,10 @@ use std::fmt::{Display, Formatter};
 /// For [Pod] safety this type is converted to/from a [u8] when represented
 /// as on-chain account data.
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "no-entrypoint",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum OracleType {
     #[default]
     Uninitialized,

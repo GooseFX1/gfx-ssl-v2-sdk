@@ -25,6 +25,7 @@ use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
 use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
 use std::fs;
+use rust_decimal::Decimal;
 use gfx_ssl_v2_interface::utils::token_amount;
 use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
 use crate::ssl_types::PoolRegistryConfig;
@@ -463,6 +464,17 @@ pub enum Subcommand {
         #[clap(long)]
         json: bool,
     },
+    MarketMakingPnl {
+        /// The pool registry address
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
+    }
 }
 
 /// This is the GFX SSLv2 CLI tool. It allows for interaction with the GFX SSLv2 protocol,
@@ -601,7 +613,6 @@ impl Opt {
                     ssl_types::OracleType::Switchboard => {
                         gfx_ssl_v2_interface::OracleType::Switchboardv2
                     }
-                    _ => gfx_ssl_v2_interface::OracleType::Invalid,
                 };
                 let asset_type = match asset_type {
                     ssl_types::AssetType::BlueChip => gfx_ssl_v2_interface::AssetType::BlueChip,
@@ -1355,16 +1366,16 @@ impl Opt {
                 )?;
             }
             Subcommand::MarketMakingPnl { pool_registry, raw, json } => {
-                let pool_registry_data = get_pool_registry_blocking(&address, &client)?;
-                let latest_prices: HashMap<Pubkey, Decimal> = (0usize..pool_registry_data.num_entries)
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let latest_prices: HashMap<Pubkey, Decimal> = (0..pool_registry_data.num_entries)
                     .map(|i| {
-                        let e = &pool_registry_data.entries[i];
+                        let e = &pool_registry_data.entries[i as usize];
                         let oracle = e.oracle_price_histories[0];
                         let price_history = get_oracle_price_history_blocking(&oracle, &client).unwrap();
-                        (e.mint, price_history.latest_price().unwrap())
+                        (e.mint, price_history.latest_price().unwrap().price.into())
                     })
                     .collect();
-                pool_registry
+                pool_registry_data
                     .entries
                     .into_iter()
                     .filter(|pool| *pool != SSLPool::default())
@@ -1382,7 +1393,7 @@ impl Opt {
                             ),
                             pool_accounts_and_data,
                             &latest_prices,
-                        ).unwrap();
+                        );
                         cli_display::<_, MarketMakingReport, MarketMakingReport>(
                             &[mm_pnl],
                             raw,
