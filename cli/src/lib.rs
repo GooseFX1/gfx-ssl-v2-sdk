@@ -563,6 +563,7 @@ impl Opt {
                 let config: PoolRegistryConfig = serde_json::from_str(json)
                     .map_err(|e| anyhow!("Failed to deserialize Pool config params: {}", e))?;
                 let config: gfx_ssl_v2_interface::PoolRegistryConfig = config.into();
+                println!("{:#?}", config);
                 let ix = config_pool_registry(
                     config,
                     admin,

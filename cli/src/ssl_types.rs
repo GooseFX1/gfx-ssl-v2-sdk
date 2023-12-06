@@ -2,7 +2,6 @@ use crate::pubkey_str::pubkey;
 use anchor_lang::prelude::Pubkey;
 use serde::{Deserialize, Serialize};
 use gfx_ssl_v2_interface::token_ratio_category;
-use gfx_ssl_v2_interface::token_ratio_category::ASSET_TYPES;
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct CreateSSLParams {
@@ -107,13 +106,11 @@ pub struct MaxPoolTokenRatio {
 
 impl Into<token_ratio_category::MaxPoolTokenRatio> for MaxPoolTokenRatio {
     fn into(self) -> token_ratio_category::MaxPoolTokenRatio {
-        let input_token = ASSET_TYPES
-            .iter().position(|t| *t == self.input_token.into()).unwrap() as u8;
-        let output_token = ASSET_TYPES
-            .iter().position(|t| *t == self.output_token.into()).unwrap() as u8;
+        let input_token: gfx_ssl_v2_interface::AssetType = self.input_token.into();
+        let output_token: gfx_ssl_v2_interface::AssetType = self.output_token.into();
         token_ratio_category::MaxPoolTokenRatio {
-            input_token,
-            output_token,
+            input_token: input_token.into(),
+            output_token: output_token.into(),
             pool_token_ratio: self.pool_token_ratio,
         }
     }
