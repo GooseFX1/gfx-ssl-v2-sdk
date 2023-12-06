@@ -416,6 +416,16 @@ pub enum Subcommand {
         #[clap(parse(try_from_str=Pubkey::try_from))]
         mint_two: Pubkey,
     },
+    GetPairs {
+        #[clap(parse(try_from_str=Pubkey::try_from))]
+        pool_registry: Pubkey,
+        /// Display the fields without any UI formatting
+        #[clap(long)]
+        raw: bool,
+        /// Display the data in JSON format
+        #[clap(long)]
+        json: bool,
+    },
     /// Display the account data for an oracle price history account.
     GetOraclePriceHistory {
         /// Display the fields without any UI formatting
@@ -1312,6 +1322,37 @@ impl Opt {
                     &client,
                 )?;
                 cli_display::<_, PairRawData, PairUiData>(&[pair_account_and_vaults], raw, json)?;
+            }
+            Subcommand::GetPairs { pool_registry, raw, json } => {
+                let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
+                let mints = (0..pool_registry_data.num_entries)
+                    .map(|index| {
+                        let pool = &pool_registry_data.entries[index as usize];
+                        pool.mint
+                    })
+                    .collect::<Vec<Pubkey>>();
+                let mut printed: Vec<Pubkey> = vec![];
+                mints
+                    .iter()
+                    .for_each(|mint_a| {
+                        mints.iter().for_each(|mint_b| {
+                            if *mint_a != *mint_b {
+                                let pair_address = Pair::address(pool_registry, *mint_a, *mint_b);
+                                if !printed.contains(&pair_address) {
+                                    let pair = get_pair_blocking(&pair_address, &client).unwrap();
+                                    let pair_account_and_vaults = PairAccountAndVaults::from_rpc_client(
+                                        pair_address,
+                                        pair,
+                                        pool_registry_data,
+                                        &client,
+                                    ).unwrap();
+                                    cli_display::<_, PairRawData, PairUiData>(&[pair_account_and_vaults], raw, json)
+                                        .unwrap();
+                                }
+                                printed.push(pair_address);
+                            }
+                        })
+                    })
             }
             Subcommand::GetOraclePriceHistory { address, raw, json } => {
                 let price_history = get_oracle_price_history_blocking(&address, &client)?;
