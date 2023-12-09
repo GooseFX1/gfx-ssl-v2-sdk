@@ -1,0 +1,28 @@
+[package]
+name = "gfx-ssl-v2-jupiter"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "jupiter_quote"
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+anyhow = { workspace = true }
+bincode = { workspace = true }
+fehler = { workspace = true }
+gfx-ssl-v2-sdk = { workspace = true }
+jupiter-amm-interface = { workspace = true }
+once_cell = { workspace = true }
+rust_decimal = { workspace = true }
+solana-bpf-simulator = { workspace = true }
+solana-sdk = { workspace = true }
+spl-token = { workspace = true }
+spl-associated-token-account = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+clap = { workspace = true }
+solana-client = { workspace = true }
+url = { workspace = true }
