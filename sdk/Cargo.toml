@@ -4,10 +4,11 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-anchor-client = "0.27.0"
-anchor-spl = {version = "0.27.0", default-features = false, features = ["mint", "token", "associated_token"] }
-solana-sdk = "1.14.18"
-gfx-ssl-v2-interface = { path = "../programs/gfx-ssl-v2", features = ["no-entrypoint"] }
-thiserror = "1.0.40"
-rust_decimal = { version = "1", features = ["maths"] }
-anyhow = "1.0.71"
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+anyhow = { workspace = true }
+gfx-ssl-v2-interface = { workspace = true }
+rust_decimal = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+thiserror = { workspace = true }
