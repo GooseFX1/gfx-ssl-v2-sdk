@@ -1,14 +1,12 @@
-use crate::error::{GfxSslSdkError, Result};
-use crate::utils::{get_state, get_state_blocking};
-use anchor_client::anchor_lang::prelude::AccountMeta;
-use anchor_client::anchor_lang::ToAccountMetas;
-use anchor_client::{
-    anchor_lang::solana_program::pubkey::Pubkey,
-    solana_client::{nonblocking::rpc_client::RpcClient, rpc_client},
-};
-use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token;
+use anchor_lang::{prelude::AccountMeta, solana_program::pubkey::Pubkey, ToAccountMetas};
+use anchor_spl::{associated_token::get_associated_token_address, token};
 use gfx_ssl_v2_interface::state::*;
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client};
+
+use crate::{
+    error::{GfxSslSdkError, Result},
+    utils::{get_state, get_state_blocking},
+};
 
 /// A pair of accounts that is passed in to a price history crank instruction.
 /// The crank takes N such pairs, as many as the pool registry has, up to

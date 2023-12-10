@@ -2,8 +2,7 @@ pub mod historical_price;
 pub mod oracle_type;
 
 use crate::PDAIdentifier;
-use anchor_lang::prelude::*;
-use anchor_lang::Discriminator;
+use anchor_lang::{prelude::*, Discriminator};
 use bytemuck::Zeroable;
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};

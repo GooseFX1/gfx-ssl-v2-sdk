@@ -1,5 +1,4 @@
-use crate::Pair;
-use crate::{PoolRegistry, SSLV2Error};
+use crate::{Pair, PoolRegistry, SSLV2Error};
 use anchor_lang::prelude::*;
 
 /// Suspend the SSL pool or update it with new price calculation parameters.

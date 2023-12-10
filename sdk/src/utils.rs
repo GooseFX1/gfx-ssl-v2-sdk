@@ -1,9 +1,8 @@
+use anchor_lang::AccountDeserialize;
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client};
+use solana_sdk::pubkey::Pubkey;
+
 use crate::error::{self, GfxSslSdkError};
-use anchor_client::{
-    anchor_lang::AccountDeserialize,
-    solana_client::{nonblocking::rpc_client::RpcClient, rpc_client},
-    solana_sdk::pubkey::Pubkey,
-};
 
 pub async fn get_state<T: AccountDeserialize>(
     address: &Pubkey,

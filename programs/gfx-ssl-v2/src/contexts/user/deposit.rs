@@ -1,7 +1,6 @@
-use crate::utils::PDAIdentifier;
 #[cfg(feature = "debug-msg")]
 use crate::SSLPoolStatus;
-use crate::{EventEmitter, LiquidityAccount, PoolRegistry, SSLPool};
+use crate::{utils::PDAIdentifier, EventEmitter, LiquidityAccount, PoolRegistry, SSLPool};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 

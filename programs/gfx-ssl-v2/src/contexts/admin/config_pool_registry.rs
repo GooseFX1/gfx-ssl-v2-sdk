@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::pool_registry::PoolRegistry;
+use anchor_lang::prelude::*;
 
 /// Updates the global data of a [PoolRegistry] account.
 #[derive(Accounts)]

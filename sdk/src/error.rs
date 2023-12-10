@@ -1,4 +1,4 @@
-use anchor_client::solana_sdk::pubkey::Pubkey;
+use solana_sdk::pubkey::Pubkey;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]

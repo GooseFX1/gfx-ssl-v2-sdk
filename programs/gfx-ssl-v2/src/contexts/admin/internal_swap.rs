@@ -1,4 +1,6 @@
-use crate::{EventEmitter, OraclePriceHistory, PDAIdentifier, Pair, PoolRegistry, SSLPool, SSLV2Error};
+use crate::{
+    EventEmitter, OraclePriceHistory, PDAIdentifier, Pair, PoolRegistry, SSLPool, SSLV2Error,
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 

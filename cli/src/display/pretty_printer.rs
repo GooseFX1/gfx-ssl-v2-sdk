@@ -448,9 +448,10 @@ mod tests {
             field3: -444,
         };
 
-        println!("Serialized output (twice to check newlines):\n{}{}",
-             cli_pretty_print(&my_struct),
-             cli_pretty_print(&my_struct),
+        println!(
+            "Serialized output (twice to check newlines):\n{}{}",
+            cli_pretty_print(&my_struct),
+            cli_pretty_print(&my_struct),
         );
     }
 }

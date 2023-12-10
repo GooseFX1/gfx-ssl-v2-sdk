@@ -1,8 +1,8 @@
-use crate::errors::SSLV2Error;
-use crate::pool_registry::ssl_pool::SSLPool;
-use crate::pool_registry::PoolRegistry;
-use crate::OraclePriceHistory;
-use crate::PDAIdentifier;
+use crate::{
+    errors::SSLV2Error,
+    pool_registry::{ssl_pool::SSLPool, PoolRegistry},
+    OraclePriceHistory, PDAIdentifier,
+};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,

@@ -1,5 +1,4 @@
-use crate::pool_registry::PoolRegistry;
-use crate::PDAIdentifier;
+use crate::{pool_registry::PoolRegistry, PDAIdentifier};
 use anchor_lang::prelude::*;
 
 /// Creates a [PoolRegistry] account tied to a given [Controller].

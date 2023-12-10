@@ -1,5 +1,4 @@
-use crate::errors::SSLV2Error;
-use crate::pool_registry::PoolRegistry;
+use crate::{errors::SSLV2Error, pool_registry::PoolRegistry};
 use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
 

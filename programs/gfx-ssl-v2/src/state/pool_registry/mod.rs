@@ -3,18 +3,16 @@ pub mod ssl_pool;
 pub mod token_ratio_category;
 
 use crate::PDAIdentifier;
-use anchor_lang::prelude::*;
-use anchor_lang::Discriminator;
+use anchor_lang::{prelude::*, Discriminator};
 use bytemuck::Zeroable;
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
 use std::io::Write;
 
 pub use crate::state::liquidity_account::LiquidityAccount;
-use crate::SSLV2Error;
+use crate::{token_ratio_category::MaxPoolTokenRatio, SSLV2Error};
 pub use math_params::{SSLMathConfig, SSLMathParams};
 pub use ssl_pool::{AssetType, SSLPool, SSLPoolStatus};
-use crate::token_ratio_category::MaxPoolTokenRatio;
 
 /// We need to enforce a maximum number of pools per admin
 /// because of Solana's on-chain compute limitations.

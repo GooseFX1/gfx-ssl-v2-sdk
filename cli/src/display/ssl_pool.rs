@@ -1,15 +1,20 @@
-use std::collections::HashMap;
+use crate::{
+    display::{
+        math_params::{SSLMathParamsRawData, SSLMathParamsUiData},
+        mint_ui_name, ui_amount,
+    },
+    pool_vault::{MainVault, MainVaultUiData, SecondaryVault, SecondaryVaultUiData},
+    pubkey_str::{pubkey, pubkey_array},
+};
+use gfx_ssl_v2_interface::{
+    ssl_pool::MAX_NUM_ORACLES_PER_MINT, utils::token_amount, AssetType, PoolRegistry, SSLPool,
+    SSLPoolStatus,
+};
 use rust_decimal::Decimal;
-use crate::pubkey_str::{pubkey, pubkey_array};
 use serde::{self, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::ssl_pool::MAX_NUM_ORACLES_PER_MINT;
-use gfx_ssl_v2_interface::{AssetType, PoolRegistry, SSLPool, SSLPoolStatus};
-use gfx_ssl_v2_interface::utils::token_amount;
-use crate::display::math_params::{SSLMathParamsRawData, SSLMathParamsUiData};
-use crate::display::{mint_ui_name, ui_amount};
-use crate::pool_vault::{MainVault, MainVaultUiData, SecondaryVault, SecondaryVaultUiData};
+use std::collections::HashMap;
 
 pub struct SSLPoolData {
     pub pool: SSLPool,
@@ -24,12 +29,9 @@ impl SSLPoolData {
         pool_registry: PoolRegistry,
         client: &RpcClient,
     ) -> Self {
-        let main_vault = MainVault::from_rpc_client(
-            pool_registry_address,
-            &pool_registry,
-            pool.mint,
-            client,
-        ).ok();
+        let main_vault =
+            MainVault::from_rpc_client(pool_registry_address, &pool_registry, pool.mint, client)
+                .ok();
         let other_pools: Vec<SSLPool> = pool_registry
             .entries
             .into_iter()
@@ -131,7 +133,8 @@ impl From<&SSLPoolData> for SSLPoolUiData {
             oracle_price_histories: value.pool.oracle_price_histories,
             math_params: SSLMathParamsUiData::from(&value.pool.math_params),
             main_vault: value.main_vault.map(|v| MainVaultUiData::from(&v)),
-            secondary_vaults: value.secondary_vaults
+            secondary_vaults: value
+                .secondary_vaults
                 .iter()
                 .map(|v| SecondaryVaultUiData::from(v))
                 .collect(),
@@ -186,23 +189,17 @@ impl MarketMakingReport {
         latest_prices: &HashMap<Pubkey, Decimal>,
     ) -> Self {
         let main_vault = pool_accounts_and_data.main_vault.unwrap();
-        let main_vault_balance = token_amount::to_ui(
-            main_vault.balance,
-            main_vault.mint_decimals,
-        );
-        let token_price = latest_prices.get(&main_vault.mint)
-            .unwrap();
+        let main_vault_balance = token_amount::to_ui(main_vault.balance, main_vault.mint_decimals);
+        let token_price = latest_prices.get(&main_vault.mint).unwrap();
         let liquidity_deposits_value = total_liquidity_deposits * token_price;
         let main_vault_value = main_vault_balance * token_price;
         let mut total_secondary_vault_value = Decimal::ZERO;
-        let mut secondary_vaults = pool_accounts_and_data.secondary_vaults
+        let mut secondary_vaults = pool_accounts_and_data
+            .secondary_vaults
             .into_iter()
             .map(|vault| {
                 let secondary_token_price = latest_prices.get(&vault.mint).unwrap();
-                let balance = token_amount::to_ui(
-                    vault.balance,
-                    vault.mint_decimals,
-                );
+                let balance = token_amount::to_ui(vault.balance, vault.mint_decimals);
                 let value = balance * secondary_token_price;
                 total_secondary_vault_value += value;
                 SecondaryVaultValuation {
@@ -245,12 +242,12 @@ impl From<&MarketMakingReport> for MarketMakingReport {
 }
 
 mod decimal_to_str {
-    use serde::{self, Serializer};
     use rust_decimal::Decimal;
+    use serde::{self, Serializer};
 
     pub fn serialize<S>(decimal: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let s = format!("{}", decimal);
         serializer.serialize_str(&s)

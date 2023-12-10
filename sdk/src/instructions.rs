@@ -1,5 +1,4 @@
-use crate::state::get_account_metas_for_swap;
-use anchor_client::anchor_lang::{
+use anchor_lang::{
     prelude::AccountMeta,
     solana_program::{instruction::Instruction, pubkey::Pubkey, system_program, sysvar},
     InstructionData, ToAccountMetas,
@@ -9,9 +8,11 @@ use anchor_spl::{
     token,
 };
 use gfx_ssl_v2_interface::{
-    pool_registry::PoolRegistry, LiquidityAccount, OraclePriceHistory, Pair, SSLMathConfig,
-    SSLMathParams, SSLPool, PoolRegistryConfig, EventEmitter
+    pool_registry::PoolRegistry, EventEmitter, LiquidityAccount, OraclePriceHistory, Pair,
+    PoolRegistryConfig, SSLMathConfig, SSLMathParams, SSLPool,
 };
+
+use crate::state::get_account_metas_for_swap;
 
 pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::CreatePoolRegistry.data();
@@ -33,9 +34,7 @@ pub fn create_pool_registry(admin: Pubkey, funder: Pubkey) -> Instruction {
     }
 }
 
-pub fn create_event_emitter(
-    funder: Pubkey,
-) -> Instruction {
+pub fn create_event_emitter(funder: Pubkey) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::CreateEventEmitter.data();
 
     let accounts = gfx_ssl_v2_interface::accounts::CreateEventEmitter {
@@ -43,7 +42,7 @@ pub fn create_event_emitter(
         event_emitter: EventEmitter::address(),
         system_program: system_program::ID,
     }
-        .to_account_metas(None);
+    .to_account_metas(None);
 
     Instruction {
         program_id: gfx_ssl_v2_interface::ID,
@@ -63,7 +62,7 @@ pub fn config_pool_registry(
         admin,
         pool_registry,
     }
-        .to_account_metas(None);
+    .to_account_metas(None);
 
     Instruction {
         program_id: gfx_ssl_v2_interface::ID,
@@ -366,8 +365,8 @@ pub fn crank_oracle_price_histories(
         })
         .collect();
 
-    let mut accounts =
-        gfx_ssl_v2_interface::accounts::CrankPriceHistories { pool_registry }.to_account_metas(None);
+    let mut accounts = gfx_ssl_v2_interface::accounts::CrankPriceHistories { pool_registry }
+        .to_account_metas(None);
 
     accounts.extend(remaining_accounts);
 

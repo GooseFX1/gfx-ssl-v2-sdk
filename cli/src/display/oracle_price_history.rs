@@ -1,9 +1,8 @@
+use crate::{display::mint_ui_name, pubkey_str::pubkey};
+use gfx_ssl_v2_interface::{HistoricalPrice, OraclePriceHistory, OracleType};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::{OracleType, HistoricalPrice, OraclePriceHistory};
-use crate::display::mint_ui_name;
-use crate::pubkey_str::pubkey;
 
 #[derive(Serialize, Clone)]
 pub struct HistoricalPriceRaw {
@@ -23,7 +22,7 @@ impl From<&HistoricalPrice> for HistoricalPriceRaw {
 }
 
 #[derive(Serialize, Clone)]
-pub struct HistoricalPriceUi (String, u64);
+pub struct HistoricalPriceUi(String, u64);
 
 impl From<&HistoricalPrice> for HistoricalPriceUi {
     fn from(value: &HistoricalPrice) -> Self {
@@ -61,7 +60,8 @@ impl From<&(Pubkey, OraclePriceHistory)> for OraclePriceHistoryRawData {
             oracle_address: act.oracle_address,
             mint: act.mint,
             num_updates: act.num_updates,
-            price_history: act.price_history
+            price_history: act
+                .price_history
                 .iter()
                 .map(|p| HistoricalPriceRaw::from(p))
                 .collect(),
@@ -90,13 +90,12 @@ pub struct OraclePriceHistoryUiData {
 
 impl From<&(Pubkey, OraclePriceHistory)> for OraclePriceHistoryUiData {
     fn from((address, act): &(Pubkey, OraclePriceHistory)) -> Self {
-        let mut price_history: Vec<HistoricalPriceUi> = act.price_history
+        let mut price_history: Vec<HistoricalPriceUi> = act
+            .price_history
             .iter()
             .map(|p| HistoricalPriceUi::from(p))
             .collect();
-        price_history.sort_by_key(|p| {
-            p.1
-        });
+        price_history.sort_by_key(|p| p.1);
         price_history.reverse();
         Self {
             address: *address,
