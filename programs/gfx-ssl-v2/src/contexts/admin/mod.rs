@@ -10,6 +10,7 @@ pub mod create_ssl;
 pub mod internal_swap;
 pub mod suspend_ssl;
 pub mod create_event_emitter;
+pub mod claim_jito;
 
 pub use create_pool_registry::*;
 pub use create_event_emitter::*;
@@ -27,3 +28,4 @@ pub use crank_price_histories::*;
 pub use internal_swap::*;
 
 pub use create_event_emitter::*;
+pub use claim_jito::*;

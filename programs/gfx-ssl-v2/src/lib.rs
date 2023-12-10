@@ -51,6 +51,16 @@ pub mod gfx_ssl_v2 {
         Ok(())
     }
 
+    pub fn claim_jito(
+      ctx: Context<ClaimJito>,
+      amount_unlocked: u64,
+      amount_locked: u64,
+      proof: Vec<[u8; 32]>,
+      new_claim_discriminator: [u8; 8],
+    ) -> Result<()> {
+      Ok(())
+    }
+
     pub fn suspend_ssl(ctx: Context<SuspendSsl>, is_suspended: bool) -> Result<()> {
         Ok(())
     }
