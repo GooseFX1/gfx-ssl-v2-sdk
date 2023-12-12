@@ -34,14 +34,16 @@ pub mod pubkey {
 }
 
 pub mod pubkey_array {
-    use serde::{self, Deserializer, Serializer};
-    pub use solana_sdk::pubkey::Pubkey;
-    use serde::ser::SerializeSeq;
     use gfx_ssl_v2_interface::ssl_pool::MAX_NUM_ORACLES_PER_MINT;
+    use serde::{self, ser::SerializeSeq, Deserializer, Serializer};
+    pub use solana_sdk::pubkey::Pubkey;
 
-    pub fn serialize<S>(pubkeys: &[Pubkey; MAX_NUM_ORACLES_PER_MINT], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(
+        pubkeys: &[Pubkey; MAX_NUM_ORACLES_PER_MINT],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(MAX_NUM_ORACLES_PER_MINT))?;
 
@@ -53,22 +55,23 @@ pub mod pubkey_array {
         seq.end()
     }
 
-    pub fn deserialize<'de, D>(_deserializer: D) -> Result<[Pubkey; MAX_NUM_ORACLES_PER_MINT], D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(
+        _deserializer: D,
+    ) -> Result<[Pubkey; MAX_NUM_ORACLES_PER_MINT], D::Error>
+    where
+        D: Deserializer<'de>,
     {
         todo!()
     }
 }
 
 pub mod pubkey_pair {
-    use serde::{self, Serializer};
+    use serde::{self, ser::SerializeSeq, Serializer};
     pub use solana_sdk::pubkey::Pubkey;
-    use serde::ser::SerializeSeq;
 
     pub fn serialize<S>(pubkeys: &(Pubkey, Pubkey), serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(2))?;
 

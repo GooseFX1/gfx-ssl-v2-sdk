@@ -1,9 +1,7 @@
-use crate::state::pool_registry::math_params::SSLMathParams;
 #[cfg(feature = "no-entrypoint")]
 use crate::utils::token_amount;
-use crate::PDAIdentifier;
-use anchor_lang::prelude::Pubkey;
-use anchor_lang::prelude::*;
+use crate::{state::pool_registry::math_params::SSLMathParams, PDAIdentifier};
+use anchor_lang::prelude::{Pubkey, *};
 use anchor_spl::associated_token::get_associated_token_address;
 use bytemuck::Zeroable;
 #[cfg(feature = "no-entrypoint")]
@@ -70,8 +68,9 @@ impl Into<u8> for SSLPoolStatus {
 
 /// Classifies assets into various categories.
 /// These values are inert in the first release of the SSLv2 protocol.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, AnchorSerialize, AnchorDeserialize,
+)]
 #[cfg_attr(
     feature = "no-entrypoint",
     derive(serde::Serialize, serde::Deserialize)

@@ -1,7 +1,7 @@
 use crate::pubkey_str::pubkey;
 use anchor_lang::prelude::Pubkey;
-use serde::{Deserialize, Serialize};
 use gfx_ssl_v2_interface::token_ratio_category;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct CreateSSLParams {
@@ -90,10 +90,9 @@ pub struct PairMintParams {
     pub fee_bps: u16,
 }
 
-
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-pub struct PoolRegistryConfig (Vec<MaxPoolTokenRatio>);
+pub struct PoolRegistryConfig(Vec<MaxPoolTokenRatio>);
 
 /// For Anchor instruction encoding.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -121,10 +120,7 @@ impl Into<gfx_ssl_v2_interface::PoolRegistryConfig> for PoolRegistryConfig {
         gfx_ssl_v2_interface::PoolRegistryConfig {
             new_admin: None,
             new_suspend_admin: None,
-            max_pool_token_ratios: self.0
-                .into_iter()
-                .map(|r| r.into())
-                .collect(),
+            max_pool_token_ratios: self.0.into_iter().map(|r| r.into()).collect(),
         }
     }
 }

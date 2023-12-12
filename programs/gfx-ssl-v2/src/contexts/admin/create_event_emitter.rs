@@ -1,6 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::{EventEmitter, PDAIdentifier};
-
+use anchor_lang::prelude::*;
 
 /// Creates an [EventEmitter] account.
 #[derive(Accounts)]

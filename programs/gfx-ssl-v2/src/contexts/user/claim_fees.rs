@@ -33,7 +33,7 @@ pub struct ClaimFees<'info> {
         has_one = pool_registry,
     )]
     pub liquidity_account: Box<Account<'info, LiquidityAccount>>,
-    
+
     #[account(mut)]
     pub event_emitter: Account<'info, EventEmitter>,
 

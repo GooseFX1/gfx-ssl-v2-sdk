@@ -19,7 +19,7 @@ pub struct CloseLiquidityAccount<'info> {
         has_one = owner,
     )]
     pub liquidity_account: Account<'info, LiquidityAccount>,
-    
+
     #[account(mut)]
     pub event_emitter: Account<'info, EventEmitter>,
 

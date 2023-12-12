@@ -1,8 +1,6 @@
-use crate::utils::token_amount;
 #[cfg(feature = "no-entrypoint")]
 use crate::utils::{u128_from_bytes, u16_to_bps};
-use crate::PDAIdentifier;
-use crate::SSLV2Error;
+use crate::{utils::token_amount, PDAIdentifier, SSLV2Error};
 use anchor_lang::prelude::*;
 use rust_decimal::Decimal;
 #[cfg(feature = "no-entrypoint")]

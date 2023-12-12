@@ -1,11 +1,9 @@
-use crate::pool_registry::PoolRegistry;
-use crate::PDAIdentifier;
-use crate::Pair;
-use crate::SSLPool;
-use crate::SSLV2Error;
+use crate::{pool_registry::PoolRegistry, PDAIdentifier, Pair, SSLPool, SSLV2Error};
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
 
 /// Suspend the SSL pool or update it with new price calculation parameters.
 ///

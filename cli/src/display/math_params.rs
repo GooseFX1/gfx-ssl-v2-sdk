@@ -1,6 +1,8 @@
+use gfx_ssl_v2_interface::{
+    utils::{u16_to_bps, u32_to_bps},
+    SSLMathParams,
+};
 use serde::{Deserialize, Serialize};
-use gfx_ssl_v2_interface::SSLMathParams;
-use gfx_ssl_v2_interface::utils::{u16_to_bps, u32_to_bps};
 
 /// Raw data with serde traits, skipping padding and extra space fields
 #[derive(Serialize, Deserialize, Clone)]

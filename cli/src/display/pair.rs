@@ -1,15 +1,18 @@
+use crate::{
+    display::{mint_decimals, mint_ui_name, u128_ui_amount},
+    pool_vault::{MainVault, MainVaultUiData, SecondaryVault, SecondaryVaultUiData},
+    pubkey_str::{pubkey, pubkey_pair},
+};
+use gfx_ssl_v2_interface::{
+    utils::{u128_from_bytes, u16_to_bps},
+    Pair, PoolRegistry,
+};
 use serde::{self, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::{Pair, PoolRegistry};
-use gfx_ssl_v2_interface::utils::{u128_from_bytes, u16_to_bps};
-use crate::display::{mint_decimals, mint_ui_name, u128_ui_amount};
-use crate::pool_vault::{MainVault, MainVaultUiData, SecondaryVault, SecondaryVaultUiData};
-use crate::pubkey_str::{pubkey, pubkey_pair};
 
 /// Scale used to record the historical USD volume swapped.
 const USD_VOLUME_DECIMALS: u32 = 6;
-
 
 pub struct PairAccountAndVaults {
     pub address: Pubkey,
@@ -27,12 +30,8 @@ impl PairAccountAndVaults {
         pool_registry: PoolRegistry,
         client: &RpcClient,
     ) -> anyhow::Result<Self> {
-        let mint_one_main_vault = MainVault::from_rpc_client(
-            pair.pool_registry,
-            &pool_registry,
-            pair.mints.0,
-            client,
-        )?;
+        let mint_one_main_vault =
+            MainVault::from_rpc_client(pair.pool_registry, &pool_registry, pair.mints.0, client)?;
         let mint_one_secondary_vault = SecondaryVault::from_rpc_client(
             pair.pool_registry,
             &pool_registry,
@@ -40,12 +39,8 @@ impl PairAccountAndVaults {
             pair.mints.1,
             client,
         )?;
-        let mint_two_main_vault = MainVault::from_rpc_client(
-            pair.pool_registry,
-            &pool_registry,
-            pair.mints.1,
-            client,
-        )?;
+        let mint_two_main_vault =
+            MainVault::from_rpc_client(pair.pool_registry, &pool_registry, pair.mints.1, client)?;
         let mint_two_secondary_vault = SecondaryVault::from_rpc_client(
             pair.pool_registry,
             &pool_registry,
@@ -179,7 +174,10 @@ impl From<&PairAccountAndVaults> for PairUiData {
         Self {
             address: value.address,
             pool_registry: value.pair.pool_registry,
-            total_historical_volume: u128_ui_amount(total_historical_volume, Some(USD_VOLUME_DECIMALS)),
+            total_historical_volume: u128_ui_amount(
+                total_historical_volume,
+                Some(USD_VOLUME_DECIMALS),
+            ),
             mint_one,
             mint_two,
         }

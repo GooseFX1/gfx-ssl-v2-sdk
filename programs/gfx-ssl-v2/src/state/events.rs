@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::PDAIdentifier;
+use anchor_lang::prelude::*;
 
 /// Tracker for event emission.
 #[account]

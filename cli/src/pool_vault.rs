@@ -1,11 +1,13 @@
+use crate::{
+    display::{mint_decimals, mint_ui_name, ui_amount},
+    pubkey_str::pubkey,
+};
 use anchor_lang::AccountDeserialize;
 use anchor_spl::token::TokenAccount;
+use gfx_ssl_v2_interface::{PoolRegistry, SSLPool};
 use serde::Serialize;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::{PoolRegistry, SSLPool};
-use crate::display::{mint_decimals, mint_ui_name, ui_amount};
-use crate::pubkey_str::pubkey;
 
 #[derive(Serialize, Clone, Copy)]
 pub struct MainVault {
@@ -28,8 +30,7 @@ impl MainVault {
         let pool = pool_registry.find_pool(mint)?;
         let mint_decimals = pool.mint_decimals as u32;
         let act = client.get_account_data(&address)?;
-        let token_act =
-            TokenAccount::try_deserialize(&mut &act[..]).unwrap();
+        let token_act = TokenAccount::try_deserialize(&mut &act[..]).unwrap();
         Ok(Self {
             mint,
             address,
@@ -52,10 +53,7 @@ pub struct MainVaultUiData {
 impl From<&MainVault> for MainVaultUiData {
     fn from(value: &MainVault) -> Self {
         let mint_name = mint_ui_name(value.mint);
-        let balance = ui_amount(
-            value.balance,
-            mint_decimals(value.mint)
-        );
+        let balance = ui_amount(value.balance, mint_decimals(value.mint));
         Self {
             address: value.address,
             mint: value.mint,
@@ -93,8 +91,7 @@ impl SecondaryVault {
         let pool = pool_registry.find_pool(secondary_mint)?;
         let mint_decimals = pool.mint_decimals as u32;
         let act = client.get_account_data(&address)?;
-        let token_act =
-            TokenAccount::try_deserialize(&mut &act[..]).unwrap();
+        let token_act = TokenAccount::try_deserialize(&mut &act[..]).unwrap();
         Ok(Self {
             main_token: primary_mint,
             mint: secondary_mint,
@@ -120,10 +117,7 @@ pub struct SecondaryVaultUiData {
 impl From<&SecondaryVault> for SecondaryVaultUiData {
     fn from(value: &SecondaryVault) -> Self {
         let mint_name = mint_ui_name(value.mint);
-        let balance = ui_amount(
-            value.balance,
-            mint_decimals(value.mint)
-        );
+        let balance = ui_amount(value.balance, mint_decimals(value.mint));
         Self {
             main_token: value.main_token,
             address: value.address,

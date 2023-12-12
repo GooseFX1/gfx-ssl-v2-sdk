@@ -3,32 +3,33 @@ pub mod pool_vault;
 pub mod pubkey_str;
 mod ssl_types;
 
-use crate::display::cli_display;
-use crate::display::liquidity_account::{LiquidityAccountRawData, LiquidityAccountUiData};
-use crate::display::pair::{PairAccountAndVaults, PairRawData, PairUiData};
-use crate::display::ssl_pool::{MarketMakingReport, SSLPoolData, SSLPoolRawData, SSLPoolUiData};
-use std::collections::HashMap;
+use crate::{
+    display::{
+        cli_display,
+        liquidity_account::{LiquidityAccountRawData, LiquidityAccountUiData},
+        oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData},
+        pair::{PairAccountAndVaults, PairRawData, PairUiData},
+        ssl_pool::{MarketMakingReport, SSLPoolData, SSLPoolRawData, SSLPoolUiData},
+    },
+    ssl_types::PoolRegistryConfig,
+};
 use anchor_lang::AccountDeserialize;
-use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::Mint;
+use anchor_spl::{associated_token::get_associated_token_address, token::Mint};
 use anyhow::anyhow;
 use clap::{IntoApp, Parser};
 use gfx_ssl_v2_interface::{
-    LiquidityAccount, OraclePriceHistory, Pair, PoolRegistry, SSLMathConfig, SSLPool,
+    utils::token_amount, LiquidityAccount, OraclePriceHistory, Pair, PoolRegistry, SSLMathConfig,
+    SSLPool,
 };
-use gfx_ssl_v2_sdk::instructions::*;
-use gfx_ssl_v2_sdk::state::*;
+use gfx_ssl_v2_sdk::{instructions::*, state::*};
+use rust_decimal::Decimal;
 use solana_client::rpc_client::RpcClient;
 use solana_devtools_cli_config::{CommitmentArg, KeypairArg, UrlArg};
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
-use solana_sdk::instruction::Instruction;
-use solana_sdk::message::Message;
-use solana_sdk::{pubkey, pubkey::Pubkey, transaction::Transaction};
-use std::fs;
-use rust_decimal::Decimal;
-use gfx_ssl_v2_interface::utils::token_amount;
-use crate::display::oracle_price_history::{OraclePriceHistoryRawData, OraclePriceHistoryUiData};
-use crate::ssl_types::PoolRegistryConfig;
+use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, message::Message, pubkey,
+    pubkey::Pubkey, transaction::Transaction,
+};
+use std::{collections::HashMap, fs};
 
 #[derive(Parser, Debug)]
 pub enum Subcommand {
@@ -484,7 +485,7 @@ pub enum Subcommand {
         /// Display the data in JSON format
         #[clap(long)]
         json: bool,
-    }
+    },
 }
 
 /// This is the GFX SSLv2 CLI tool. It allows for interaction with the GFX SSLv2 protocol,
@@ -564,11 +565,7 @@ impl Opt {
                     .map_err(|e| anyhow!("Failed to deserialize Pool config params: {}", e))?;
                 let config: gfx_ssl_v2_interface::PoolRegistryConfig = config.into();
                 println!("{:#?}", config);
-                let ix = config_pool_registry(
-                    config,
-                    admin,
-                    pool_registry,
-                );
+                let ix = config_pool_registry(config, admin, pool_registry);
 
                 if print_only {
                     let message = Message::new(&[ix], None);
@@ -1225,9 +1222,7 @@ impl Opt {
                 let pair = Pair::address(pool_registry, mint_one, mint_two);
                 println!("{}", pair);
             }
-            Subcommand::GetPairAddresses {
-                pool_registry,
-            } => {
+            Subcommand::GetPairAddresses { pool_registry } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
                 let mints = (0..pool_registry_data.num_entries)
                     .map(|index| {
@@ -1236,19 +1231,17 @@ impl Opt {
                     })
                     .collect::<Vec<Pubkey>>();
                 let mut printed: Vec<Pubkey> = vec![];
-                mints
-                    .iter()
-                    .for_each(|mint_a| {
-                        mints.iter().for_each(|mint_b| {
-                            if *mint_a != *mint_b {
-                                let pair = Pair::address(pool_registry, *mint_a, *mint_b);
-                                if !printed.contains(&pair) {
-                                    println!("{}", pair);
-                                    printed.push(pair);
-                                }
+                mints.iter().for_each(|mint_a| {
+                    mints.iter().for_each(|mint_b| {
+                        if *mint_a != *mint_b {
+                            let pair = Pair::address(pool_registry, *mint_a, *mint_b);
+                            if !printed.contains(&pair) {
+                                println!("{}", pair);
+                                printed.push(pair);
                             }
-                        })
+                        }
                     })
+                })
             }
             Subcommand::GetSSLPoolVaultAddress {
                 pool_registry,
@@ -1324,7 +1317,11 @@ impl Opt {
                 )?;
                 cli_display::<_, PairRawData, PairUiData>(&[pair_account_and_vaults], raw, json)?;
             }
-            Subcommand::GetPairs { pool_registry, raw, json } => {
+            Subcommand::GetPairs {
+                pool_registry,
+                raw,
+                json,
+            } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
                 let mints = (0..pool_registry_data.num_entries)
                     .map(|index| {
@@ -1333,39 +1330,47 @@ impl Opt {
                     })
                     .collect::<Vec<Pubkey>>();
                 let mut printed: Vec<Pubkey> = vec![];
-                mints
-                    .iter()
-                    .for_each(|mint_a| {
-                        mints.iter().for_each(|mint_b| {
-                            if *mint_a != *mint_b {
-                                let pair_address = Pair::address(pool_registry, *mint_a, *mint_b);
-                                if !printed.contains(&pair_address) {
-                                    let pair = get_pair_blocking(&pair_address, &client).unwrap();
-                                    let pair_account_and_vaults = PairAccountAndVaults::from_rpc_client(
+                mints.iter().for_each(|mint_a| {
+                    mints.iter().for_each(|mint_b| {
+                        if *mint_a != *mint_b {
+                            let pair_address = Pair::address(pool_registry, *mint_a, *mint_b);
+                            if !printed.contains(&pair_address) {
+                                let pair = get_pair_blocking(&pair_address, &client).unwrap();
+                                let pair_account_and_vaults =
+                                    PairAccountAndVaults::from_rpc_client(
                                         pair_address,
                                         pair,
                                         pool_registry_data,
                                         &client,
-                                    ).unwrap();
-                                    cli_display::<_, PairRawData, PairUiData>(&[pair_account_and_vaults], raw, json)
-                                        .unwrap();
-                                }
-                                printed.push(pair_address);
+                                    )
+                                    .unwrap();
+                                cli_display::<_, PairRawData, PairUiData>(
+                                    &[pair_account_and_vaults],
+                                    raw,
+                                    json,
+                                )
+                                .unwrap();
                             }
-                        })
+                            printed.push(pair_address);
+                        }
                     })
+                })
             }
             Subcommand::GetOraclePriceHistory { address, raw, json } => {
                 let price_history = get_oracle_price_history_blocking(&address, &client)?;
                 let slot = client.get_slot()?;
                 let latest_price = price_history.latest_price()?;
-                println!("We are at slot {}, latest price is at slot {}, difference of {}",
-                     slot,
-                     latest_price.slot,
-                     slot - latest_price.slot,
+                println!(
+                    "We are at slot {}, latest price is at slot {}, difference of {}",
+                    slot,
+                    latest_price.slot,
+                    slot - latest_price.slot,
                 );
                 cli_display::<_, OraclePriceHistoryRawData, OraclePriceHistoryUiData>(
-                    &[(address, price_history)], raw, json)?;
+                    &[(address, price_history)],
+                    raw,
+                    json,
+                )?;
             }
             Subcommand::GetLiquidityAccount {
                 pool_registry,
@@ -1407,13 +1412,18 @@ impl Opt {
                     &accounts, raw, json,
                 )?;
             }
-            Subcommand::MarketMakingPnl { pool_registry, raw, json } => {
+            Subcommand::MarketMakingPnl {
+                pool_registry,
+                raw,
+                json,
+            } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)?;
                 let latest_prices: HashMap<Pubkey, Decimal> = (0..pool_registry_data.num_entries)
                     .map(|i| {
                         let e = &pool_registry_data.entries[i as usize];
                         let oracle = e.oracle_price_histories[0];
-                        let price_history = get_oracle_price_history_blocking(&oracle, &client).unwrap();
+                        let price_history =
+                            get_oracle_price_history_blocking(&oracle, &client).unwrap();
                         (e.mint, price_history.latest_price().unwrap().price.into())
                     })
                     .collect();
@@ -1441,7 +1451,7 @@ impl Opt {
                             raw,
                             json,
                         )
-                            .unwrap();
+                        .unwrap();
                     })
             }
         }

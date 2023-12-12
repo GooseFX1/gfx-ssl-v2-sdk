@@ -1,15 +1,15 @@
 pub mod liquidity_account;
-pub mod pretty_printer;
 pub mod math_params;
-pub mod ssl_pool;
-pub mod pool_registry;
-pub mod pair;
 pub mod oracle_price_history;
+pub mod pair;
+pub mod pool_registry;
+pub mod pretty_printer;
+pub mod ssl_pool;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
-use serde::Serialize;
 use crate::pubkey_str::pubkey::Pubkey;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use gfx_ssl_v2_interface::utils::token_amount;
+use serde::Serialize;
 use solana_sdk::pubkey;
 
 pub const MAINNET_POOL_REGISTRY: Pubkey = pubkey!("F451mjRqGEu1azbj46v4FuMEt1CacaPHQKUHzuTqKp4R");
@@ -52,20 +52,19 @@ pub fn mint_decimals(mint: Pubkey) -> Option<u32> {
 }
 
 pub fn ui_amount(raw_amount: u64, mint_decimals: Option<u32>) -> Option<String> {
-    mint_decimals
-        .map(|decimals| token_amount::to_ui(raw_amount, decimals).to_string())
+    mint_decimals.map(|decimals| token_amount::to_ui(raw_amount, decimals).to_string())
 }
 
 pub fn u128_ui_amount(raw_amount: u128, mint_decimals: Option<u32>) -> Option<String> {
-    mint_decimals
-        .map(|decimals| token_amount::u128_to_ui(raw_amount, decimals).to_string())
+    mint_decimals.map(|decimals| token_amount::u128_to_ui(raw_amount, decimals).to_string())
 }
 
 pub fn ui_timestamp(raw_timestamp: i64) -> String {
     DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp_opt(raw_timestamp, 0).unwrap(),
         Utc,
-    ).to_string()
+    )
+    .to_string()
 }
 
 pub trait CliDisplay: Serialize {
@@ -97,24 +96,22 @@ pub fn cli_display<'a, T, Raw: Serialize + From<&'a T>, Ui: Serialize + From<&'a
     json: bool,
 ) -> Result<(), serde_json::Error> {
     if raw {
-        let values = values
-        .iter()
-        .map(|act| Raw::from(act))
-        .collect::<Vec<_>>();
+        let values = values.iter().map(|act| Raw::from(act)).collect::<Vec<_>>();
         if json {
             println!("{}", serde_json::to_string_pretty(&values)?);
         } else {
-            values.iter().for_each(|v| println!("{}", v.cli_pretty_print()));
+            values
+                .iter()
+                .for_each(|v| println!("{}", v.cli_pretty_print()));
         }
     } else {
-        let values = values
-        .iter()
-        .map(|act| Ui::from(act))
-        .collect::<Vec<_>>();
+        let values = values.iter().map(|act| Ui::from(act)).collect::<Vec<_>>();
         if json {
             println!("{}", serde_json::to_string_pretty(&values)?);
         } else {
-            values.iter().for_each(|v| println!("{}", v.cli_pretty_print()));
+            values
+                .iter()
+                .for_each(|v| println!("{}", v.cli_pretty_print()));
         }
     };
     Ok(())

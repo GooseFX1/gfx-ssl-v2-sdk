@@ -17,24 +17,25 @@ default = []
 debug-msg = []
 
 [dependencies]
-anchor-lang = "0.27.0"
-anchor-spl = { version = "0.27.0", default-features = false, features = ["mint", "token", "associated_token"] }
-bytemuck = "1.13.1"
-rust_decimal = { version = "1", features = ["maths"] }
-num-traits = "0.2.15"
-pyth-sdk-solana = "0.7"
-switchboard-v2 = "=0.1.22"
-pyo3 = { version = "0.19.1", features = ["extension-module"], optional = true }
-serde = { version = "1.0.171", optional = true }
-serde_json = { version = "1.0.103", optional = true }
-chrono = { version = "0.4.26", optional = true }
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+bytemuck = { workspace = true }
+num-traits = { workspace = true }
+pyth-sdk-solana = { workspace = true }
+rust_decimal = { workspace = true }
+switchboard-v2 = { workspace = true }
+
+chrono = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+serde = { workspace = true, optional = true  }
+serde_json = { workspace = true, optional = true  }
 
 [dev-dependencies]
 # The dependencies below are to maintain compatibility with anchor build commands
 # which force an older compiler version
-winnow = "=0.4.1"
-toml_datetime = "=0.6.1"
-serde = { version  ="1.0.164", features = ["derive"] }
-serde_json = "1.0.96"
-pyo3 = "0.19.1"
-uuid = { version = "1.4.1", features = ["serde", "v4"] }
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml_datetime = { workspace = true }
+uuid = { workspace = true }
+winnow = { workspace = true }

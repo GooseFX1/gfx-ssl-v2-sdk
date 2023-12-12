@@ -1,8 +1,10 @@
-use crate::pubkey_str::pubkey;
+use crate::{
+    display::ssl_pool::{SSLPoolRawData, SSLPoolUiData},
+    pubkey_str::pubkey,
+};
+use gfx_ssl_v2_interface::MAX_SSL_POOLS_PER_ADMIN;
 use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
-use gfx_ssl_v2_interface::MAX_SSL_POOLS_PER_ADMIN;
-use crate::display::ssl_pool::{SSLPoolRawData, SSLPoolUiData};
 
 #[derive(Serialize, Clone)]
 pub struct PoolRegistryRawData {
@@ -30,15 +32,17 @@ pub struct PoolRegistryUiData {
 }
 
 pub mod entries {
-    use serde::{self, Deserializer, Serializer};
-    pub use solana_sdk::pubkey::Pubkey;
-    use serde::ser::SerializeSeq;
-    use gfx_ssl_v2_interface::{MAX_SSL_POOLS_PER_ADMIN, SSLPoolStatus};
     use crate::display::ssl_pool::SSLPoolUiData;
+    use gfx_ssl_v2_interface::{SSLPoolStatus, MAX_SSL_POOLS_PER_ADMIN};
+    use serde::{self, ser::SerializeSeq, Deserializer, Serializer};
+    pub use solana_sdk::pubkey::Pubkey;
 
-    pub fn serialize<S>(entries: &[SSLPoolUiData; MAX_SSL_POOLS_PER_ADMIN], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(
+        entries: &[SSLPoolUiData; MAX_SSL_POOLS_PER_ADMIN],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(MAX_SSL_POOLS_PER_ADMIN))?;
 
@@ -52,9 +56,11 @@ pub mod entries {
         seq.end()
     }
 
-    pub fn deserialize<'de, D>(_deserializer: D) -> Result<[SSLPoolUiData; MAX_SSL_POOLS_PER_ADMIN], D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(
+        _deserializer: D,
+    ) -> Result<[SSLPoolUiData; MAX_SSL_POOLS_PER_ADMIN], D::Error>
+    where
+        D: Deserializer<'de>,
     {
         todo!()
     }
