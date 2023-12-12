@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, fmt::Debug};
 
 use anchor_lang::{
     prelude::{Clock, UpgradeableLoaderState},
-    AccountDeserialize, InstructionData, ToAccountMetas,
+    AccountDeserialize, AccountSerialize, InstructionData, ToAccountMetas,
 };
 use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::Error;
@@ -161,23 +161,59 @@ impl Amm for GfxAmm {
                     self.accounts.insert(ssl.oracle_price_histories[0], None);
                     self.price_histories.push(ssl.oracle_price_histories[0]);
                 }
-            } else if !self.price_histories.is_empty()
-                && pubkey == &self.price_histories[0]
-                && self.oracles.0 == Pubkey::default()
+            } else if !self.price_histories.is_empty() && pubkey == &self.price_histories[0]
+            // && self.oracles.0 == Pubkey::default()
             {
-                let history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
+                let mut history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
                     .map_err(|_| DeserializeFailure(*pubkey, "OraclePriceHistory".to_string()))?;
 
-                self.accounts.insert(history.oracle_address, None);
+                for h in &mut history.price_history {
+                    h.price.inv = (1. / Into::<f64>::into(h.price)) as f32;
+                }
+
+                let mut data = vec![];
+                history.try_serialize(&mut data).unwrap();
+                *acc = Some(
+                    Account {
+                        lamports: account.lamports,
+                        owner: account.owner,
+                        data,
+                        executable: account.executable,
+                        rent_epoch: account.rent_epoch,
+                    }
+                    .into(),
+                );
+
+                if !self.accounts.contains_key(&history.oracle_address) {
+                    self.accounts.insert(history.oracle_address, None);
+                }
                 self.oracles.0 = history.oracle_address;
-            } else if !self.price_histories.is_empty()
-                && pubkey == &self.price_histories[1]
-                && self.oracles.1 == Pubkey::default()
+            } else if !self.price_histories.is_empty() && pubkey == &self.price_histories[1]
+            // && self.oracles.1 == Pubkey::default()
             {
-                let history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
+                let mut history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
                     .map_err(|_| DeserializeFailure(*pubkey, "OraclePriceHistory".to_string()))?;
 
-                self.accounts.insert(history.oracle_address, None);
+                for h in &mut history.price_history {
+                    h.price.inv = (1. / Into::<f64>::into(h.price)) as f32;
+                }
+
+                let mut data = vec![];
+                history.try_serialize(&mut data).unwrap();
+                *acc = Some(
+                    Account {
+                        lamports: account.lamports,
+                        owner: account.owner,
+                        data,
+                        executable: account.executable,
+                        rent_epoch: account.rent_epoch,
+                    }
+                    .into(),
+                );
+
+                if !self.accounts.contains_key(&history.oracle_address) {
+                    self.accounts.insert(history.oracle_address, None);
+                }
                 self.oracles.1 = history.oracle_address;
             } else if !self.has_program_data && pubkey == &gfx_ssl_v2_sdk::ID {
                 let state: UpgradeableLoaderState =

@@ -15,12 +15,18 @@ pub const DEFAULT_MINIMUM_ELAPSED_SLOTS: u8 = 11;
 pub struct HistoricalDecimal {
     pub num: i64,
     pub scale: u32,
-    pub _pad0: [u8; 4],
+    pub inv: f32,
 }
 
 impl Into<Decimal> for HistoricalDecimal {
     fn into(self) -> Decimal {
         Decimal::new(self.num, self.scale)
+    }
+}
+
+impl Into<f64> for HistoricalDecimal {
+    fn into(self) -> f64 {
+        self.num as f64 / 10f64.powi(self.scale.try_into().unwrap())
     }
 }
 

@@ -124,7 +124,7 @@ impl OraclePriceHistory {
                 price: HistoricalDecimal {
                     num,
                     scale: 6,
-                    _pad0: [0; 4],
+                    inv: 0.,
                 },
                 slot: slot as u64,
             })
