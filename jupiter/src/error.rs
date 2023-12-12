@@ -14,4 +14,7 @@ pub enum GfxJupiterIntegrationError {
 
     #[error("Could not resolve fee destination from pair")]
     CannotResolveFeeDestination,
+
+    #[error("Missing quote line in the program log")]
+    MissingQuoteLine,
 }

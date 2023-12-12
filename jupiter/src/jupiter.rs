@@ -7,7 +7,7 @@ use anchor_lang::{
 use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::Error;
 use fehler::{throw, throws};
-use gfx_ssl_v2_sdk::state::{EventEmitter, OraclePriceHistory, Pair, PoolRegistry, SSLPool};
+use gfx_ssl_v2_sdk::state::{OraclePriceHistory, Pair, PoolRegistry, SSLPool};
 use jupiter_amm_interface::{
     AccountMap, Amm, KeyedAccount, Quote, QuoteParams, Swap, SwapAndAccountMetas, SwapParams,
 };
@@ -15,18 +15,14 @@ use once_cell::sync::Lazy;
 use rust_decimal::Decimal;
 use solana_bpf_simulator::{SBFExecutor, WrappedSlot, FEATURES};
 use solana_sdk::{
-    account::{Account, AccountSharedData, ReadableAccount, WritableAccount},
+    account::{Account, AccountSharedData, ReadableAccount},
     account_utils::StateMut,
+    bpf_loader_upgradeable,
     message::{LegacyMessage, Message, SanitizedMessage},
     native_loader,
-    program_option::COption,
-    program_pack::Pack,
-    pubkey,
     pubkey::Pubkey,
-    system_program,
     sysvar::clock,
 };
-use spl_token::{native_mint, state::AccountState};
 
 use crate::{error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap};
 
@@ -41,30 +37,6 @@ static BPF_LOADER: Lazy<AccountSharedData> = Lazy::new(|| {
     .into()
 });
 
-#[derive(Debug, Clone)]
-struct AccountWithKey {
-    key: Pubkey,
-    account: AccountSharedData,
-}
-
-impl From<(Pubkey, AccountSharedData)> for AccountWithKey {
-    fn from(value: (Pubkey, AccountSharedData)) -> Self {
-        Self {
-            key: value.0,
-            account: value.1,
-        }
-    }
-}
-
-impl From<(Pubkey, Account)> for AccountWithKey {
-    fn from(value: (Pubkey, Account)) -> Self {
-        Self {
-            key: value.0,
-            account: value.1.into(),
-        }
-    }
-}
-
 /// Struct that implements the `jupiter_core::amm::Amm` trait.
 #[derive(Debug, Clone)]
 pub struct GfxAmm {
@@ -76,18 +48,11 @@ pub struct GfxAmm {
     fee_destination: (Pubkey, Pubkey),
     price_histories: Vec<Pubkey>,
     has_program_data: bool,
-    ssl_signers: (Pubkey, Pubkey),
     main_vaults: (Pubkey, Pubkey),
     secondary_vaults: (Pubkey, Pubkey),
-    fee_vaults: (Pubkey, Pubkey),
     oracles: (Pubkey, Pubkey),
-    event_emitter: Pubkey,
 
     accounts: HashMap<Pubkey, Option<AccountSharedData>>,
-
-    // cached fake accounts
-    user_wallet: AccountWithKey,
-    user_atas: (AccountWithKey, AccountWithKey),
 }
 
 impl Amm for GfxAmm {
@@ -99,8 +64,6 @@ impl Amm for GfxAmm {
 
         accounts.insert(clock::ID, None); // Can be lifted if a slot is passed in
         accounts.insert(gfx_ssl_v2_sdk::ID, None);
-        accounts.insert(spl_token::ID, None);
-        accounts.insert(EventEmitter::address(), None);
 
         let pair_pubkey = pair.key;
         accounts.insert(pair.key, None);
@@ -131,66 +94,12 @@ impl Amm for GfxAmm {
         accounts.insert(secondary_vaults.0, None);
         accounts.insert(secondary_vaults.1, None);
 
-        let fee_vaults = (
-            get_associated_token_address(&pair.pool_registry, &mints.0),
-            get_associated_token_address(&pair.pool_registry, &mints.1),
-        );
-        accounts.insert(fee_vaults.0, None);
-        accounts.insert(fee_vaults.1, None);
-
         let (_, fee_destination_a, _) = pair
             .find_fee_attrs(mints.0, mints.1)
             .map_err(|_| CannotResolveFeeDestination)?;
         let (_, fee_destination_b, _) = pair
             .find_fee_attrs(mints.1, mints.0)
             .map_err(|_| CannotResolveFeeDestination)?;
-        accounts.insert(fee_destination_a, None);
-        accounts.insert(fee_destination_b, None);
-
-        let user_wallet = pubkey!("GFXFAKEWA11ET111111111111111111111111111111");
-        let mut user_ata_a = (
-            get_associated_token_address(&user_wallet, &mints.0),
-            Account {
-                owner: spl_token::ID,
-                lamports: 0,
-                rent_epoch: 0,
-                executable: false,
-                data: vec![0; spl_token::state::Account::LEN],
-            },
-        );
-        spl_token::state::Account {
-            mint: mints.0,
-            owner: user_wallet,
-            amount: 0,
-            state: AccountState::Initialized,
-            close_authority: COption::None,
-            delegate: COption::None,
-            delegated_amount: 0,
-            is_native: (mints.0 == native_mint::ID).then_some(0).into(),
-        }
-        .pack_into_slice(&mut user_ata_a.1.data);
-
-        let mut user_ata_b = (
-            get_associated_token_address(&user_wallet, &mints.1),
-            Account {
-                owner: spl_token::ID,
-                lamports: 0,
-                rent_epoch: 0,
-                executable: false,
-                data: vec![0; spl_token::state::Account::LEN],
-            },
-        );
-        spl_token::state::Account {
-            mint: mints.1,
-            owner: user_wallet,
-            amount: 0,
-            state: AccountState::Initialized,
-            close_authority: COption::None,
-            delegate: COption::None,
-            delegated_amount: 0,
-            is_native: (mints.1 == native_mint::ID).then_some(0).into(),
-        }
-        .pack_into_slice(&mut user_ata_b.1.data);
 
         Ok(Self {
             pair: pair_pubkey,
@@ -202,25 +111,9 @@ impl Amm for GfxAmm {
             fee_rates: pair.fee_rates,
             accounts,
 
-            ssl_signers,
             main_vaults,
             secondary_vaults,
-            fee_vaults,
             oracles: Default::default(),
-            event_emitter: EventEmitter::address(),
-
-            user_wallet: (
-                user_wallet,
-                Account {
-                    owner: system_program::ID,
-                    lamports: 0,
-                    rent_epoch: 0,
-                    executable: false,
-                    data: vec![],
-                },
-            )
-                .into(),
-            user_atas: (user_ata_a.into(), user_ata_b.into()),
         })
     }
 
@@ -318,73 +211,48 @@ impl Amm for GfxAmm {
             throw!(RequiredAccountUpdate);
         }
 
-        let (
-            fee_destination,
-            price_histories,
-            signers,
-            atas,
-            main_vaults,
-            secondary_vaults,
-            fee_vault,
-            oracles,
-        ) = if quote_params.input_mint == self.mints.0 {
-            (
-                self.fee_destination.0,
-                (self.price_histories[0], self.price_histories[1]),
-                (self.ssl_signers.0, self.ssl_signers.1),
-                (self.user_atas.0.key, self.user_atas.1.key),
-                (self.main_vaults.0, self.main_vaults.1),
-                (self.secondary_vaults.0, self.secondary_vaults.1),
-                self.fee_vaults.1,
-                (self.oracles.0, self.oracles.1),
-            )
-        } else {
-            (
-                self.fee_destination.1,
-                (self.price_histories[1], self.price_histories[0]),
-                (self.ssl_signers.1, self.ssl_signers.0),
-                (self.user_atas.1.key, self.user_atas.0.key),
-                (self.main_vaults.1, self.main_vaults.0),
-                (self.secondary_vaults.1, self.secondary_vaults.0),
-                self.fee_vaults.0,
-                (self.oracles.1, self.oracles.0),
-            )
-        };
-
-        let metas = gfx_ssl_v2_sdk::anchor::accounts::Swap {
+        let (price_histories, main_vaults, secondary_vaults, oracles) =
+            if quote_params.input_mint == self.mints.0 {
+                (
+                    (self.price_histories[0], self.price_histories[1]),
+                    (self.main_vaults.0, self.main_vaults.1),
+                    (self.secondary_vaults.0, self.secondary_vaults.1),
+                    (self.oracles.0, self.oracles.1),
+                )
+            } else {
+                (
+                    (self.price_histories[1], self.price_histories[0]),
+                    (self.main_vaults.1, self.main_vaults.0),
+                    (self.secondary_vaults.1, self.secondary_vaults.0),
+                    (self.oracles.1, self.oracles.0),
+                )
+            };
+        let metas = gfx_ssl_v2_sdk::anchor::accounts::Quote {
             pair: self.pair,
             pool_registry: self.pool_registry,
-            user_wallet: self.user_wallet.key,
-            ssl_pool_in_signer: signers.0,
-            ssl_pool_out_signer: signers.1,
-            user_ata_in: atas.0,
-            user_ata_out: atas.1,
-            ssl_out_main_vault: main_vaults.1,
-            ssl_out_secondary_vault: secondary_vaults.1,
+
             ssl_in_main_vault: main_vaults.0,
             ssl_in_secondary_vault: secondary_vaults.0,
-            ssl_out_fee_vault: fee_vault,
-            fee_destination,
-            output_token_price_history: price_histories.1,
-            output_token_oracle: oracles.1,
             input_token_price_history: price_histories.0,
             input_token_oracle: oracles.0,
-            event_emitter: self.event_emitter,
-            token_program: spl_token::ID,
+
+            ssl_out_main_vault: main_vaults.1,
+            ssl_out_secondary_vault: secondary_vaults.1,
+            output_token_price_history: price_histories.1,
+            output_token_oracle: oracles.1,
         }
         .to_account_metas(None);
 
         let ix = solana_sdk::instruction::Instruction {
             program_id: gfx_ssl_v2_sdk::ID,
             accounts: metas,
-            data: gfx_ssl_v2_sdk::anchor::instruction::Swap {
+            data: gfx_ssl_v2_sdk::anchor::instruction::Quote {
                 amount_in: quote_params.amount,
-                min_out: 0,
             }
             .data(),
         };
 
-        let message = Message::new(&[ix], Some(&self.user_wallet.key));
+        let message = Message::new(&[ix], None);
         let message = SanitizedMessage::Legacy(LegacyMessage::new(message));
 
         EXECUTOR.with(|sbf| {
@@ -399,82 +267,48 @@ impl Amm for GfxAmm {
             let slot = clock.slot;
             sbf.sysvar_cache_mut().set_clock(clock);
 
-            let mut loader = sbf.loader(|key| {
-                if key == &self.user_wallet.key {
-                    return Some(self.user_wallet.account.clone());
-                }
-                if key == &self.user_atas.0.key {
-                    let mut account = self.user_atas.0.account.clone();
-                    if quote_params.input_mint == self.mints.0 {
-                        set_spl_amount(account.data_as_mut_slice(), quote_params.amount);
-                        if quote_params.input_mint == native_mint::ID {
-                            account.set_lamports(quote_params.amount.saturating_add(1_000_000_000));
-                        }
-                    }
-                    return Some(account);
-                }
-                if key == &self.user_atas.1.key {
-                    let mut account = self.user_atas.1.account.clone();
-                    if quote_params.input_mint == self.mints.1 {
-                        set_spl_amount(account.data_as_mut_slice(), quote_params.amount);
-                        if quote_params.input_mint == native_mint::ID {
-                            account.set_lamports(quote_params.amount.saturating_add(1_000_000_000));
-                        }
-                    }
-                    return Some(account);
-                }
-                if key == &pubkey!("BPFLoaderUpgradeab1e11111111111111111111111") {
+            let mut loader = sbf.loader(|&key| {
+                if key == bpf_loader_upgradeable::ID {
                     return Some(BPF_LOADER.clone());
                 }
 
-                if key == &self.ssl_signers.0 || key == &self.ssl_signers.1 {
-                    return Some(Default::default());
-                }
-
-                self.accounts.get(key).cloned().flatten()
+                self.accounts.get(&key).cloned().flatten()
             });
 
             let loaded_transaction = loader.load_transaction_account(&message)?;
             let loaded_programs = loader.load_programs(&WrappedSlot(slot), [&message])?;
 
-            let result = sbf.process(slot, &message, loaded_transaction, &loaded_programs)?;
+            sbf.record_log();
+            let result = sbf.process(slot, &message, loaded_transaction, &loaded_programs);
+            let logs = sbf.logger();
+            // println!("{:?}", logs.get_recorded_content());
+            let _ = result?;
 
-            let accounts: HashMap<_, _> = result.keys.into_iter().zip(result.datas).collect();
+            let line = logs
+                .get_recorded_content()
+                .iter()
+                .find(|line| line.starts_with("Program log: QuoteResult: "))
+                .ok_or(MissingQuoteLine)?;
+            let mut iter = line
+                .trim_start_matches("Program log: QuoteResult: ")
+                .split(" ");
+            let output: u64 = iter.next().ok_or(MissingQuoteLine)?.parse()?;
+            let fee: u64 = iter.next().ok_or(MissingQuoteLine)?.parse()?;
 
-            let (fee_pct, input_amount_after, output_amount_after) =
-                if quote_params.input_mint == self.mints.0 {
-                    (
-                        self.fee_rates.0,
-                        spl_amount(accounts.get(&self.user_atas.0.key).unwrap().data()).unwrap(),
-                        spl_amount(accounts.get(&self.user_atas.1.key).unwrap().data()).unwrap(),
-                    )
-                } else {
-                    (
-                        self.fee_rates.1,
-                        spl_amount(accounts.get(&self.user_atas.1.key).unwrap().data()).unwrap(),
-                        spl_amount(accounts.get(&self.user_atas.0.key).unwrap().data()).unwrap(),
-                    )
-                };
-            let fee_amount_before = spl_amount(
-                self.accounts
-                    .get(&fee_destination)
-                    .unwrap()
-                    .as_ref()
-                    .unwrap()
-                    .data(),
-            )
-            .unwrap();
-            let fee_amount_after =
-                spl_amount(accounts.get(&fee_destination).unwrap().data()).unwrap();
+            let fee_pct = if quote_params.input_mint == self.mints.0 {
+                self.fee_rates.0
+            } else {
+                self.fee_rates.1
+            };
             let fee_pct = Decimal::new(fee_pct.into(), 4);
 
             let quote = Quote {
                 not_enough_liquidity: false,
                 min_in_amount: None,
                 min_out_amount: None,
-                in_amount: quote_params.amount.saturating_sub(input_amount_after),
-                out_amount: output_amount_after,
-                fee_amount: fee_amount_after.saturating_sub(fee_amount_before) * 2,
+                in_amount: quote_params.amount,
+                out_amount: output,
+                fee_amount: fee,
                 fee_mint: quote_params.output_mint,
                 fee_pct,
             };
@@ -536,20 +370,4 @@ impl Amm for GfxAmm {
     fn clone_amm(&self) -> Box<dyn Amm + Send + Sync> {
         Box::new(self.clone())
     }
-}
-
-fn spl_amount(bytes: &[u8]) -> Option<u64> {
-    if bytes.len() < 72 {
-        return None;
-    }
-    let mut amount_bytes = [0u8; 8];
-    amount_bytes.copy_from_slice(&bytes[64..72]);
-    Some(u64::from_le_bytes(amount_bytes))
-}
-
-fn set_spl_amount(bytes: &mut [u8], amount: u64) {
-    if bytes.len() < 72 {
-        return;
-    }
-    bytes[64..72].copy_from_slice(&u64::to_le_bytes(amount))
 }
