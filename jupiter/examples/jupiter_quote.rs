@@ -42,9 +42,24 @@ pub fn get_quote(
     // Perform three account updates
     // "../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so"
     let mut updated = HashSet::new();
-    update_accounts(&mut updated, &mut gfx_amm, client, None);
-    update_accounts(&mut updated, &mut gfx_amm, client, None);
-    update_accounts(&mut updated, &mut gfx_amm, client, None);
+    update_accounts(
+        &mut updated,
+        &mut gfx_amm,
+        client,
+        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
+    );
+    update_accounts(
+        &mut updated,
+        &mut gfx_amm,
+        client,
+        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
+    );
+    update_accounts(
+        &mut updated,
+        &mut gfx_amm,
+        client,
+        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
+    );
 
     let quote = gfx_amm.quote(&QuoteParams {
         amount,

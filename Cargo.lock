@@ -2112,6 +2112,7 @@ dependencies = [
  "anchor-spl 0.28.0",
  "anyhow",
  "bincode",
+ "bytemuck",
  "clap 4.1.14",
  "fehler",
  "gfx-ssl-v2-sdk",
@@ -4276,8 +4277,8 @@ dependencies = [
 
 [[package]]
 name = "solana-bpf-simulator"
-version = "0.1.1"
-source = "git+https://github.com/dovahcrow/solana-bpf-simulator#55703dc43f0620e35df604920daad4b4839cab65"
+version = "0.1.2"
+source = "git+https://github.com/dovahcrow/solana-bpf-simulator#bb736c66b8b0e3e24681e9f0e42245a07713df83"
 dependencies = [
  "anyhow",
  "bincode",

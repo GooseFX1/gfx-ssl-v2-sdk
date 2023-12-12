@@ -6,8 +6,9 @@ use anchor_lang::{
 };
 use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::Error;
+use bytemuck::bytes_of;
 use fehler::{throw, throws};
-use gfx_ssl_v2_sdk::state::{OraclePriceHistory, Pair, PoolRegistry, SSLPool};
+use gfx_ssl_v2_sdk::state::{BollingerBand, OraclePriceHistory, Pair, PoolRegistry, SSLPool};
 use jupiter_amm_interface::{
     AccountMap, Amm, KeyedAccount, Quote, QuoteParams, Swap, SwapAndAccountMetas, SwapParams,
 };
@@ -36,22 +37,43 @@ static BPF_LOADER: Lazy<AccountSharedData> = Lazy::new(|| {
     .into()
 });
 
+type Tuple<T> = (T, T);
+
 /// Struct that implements the `jupiter_core::amm::Amm` trait.
 #[derive(Debug, Clone)]
 pub struct GfxAmm {
     pair: Pubkey,
 
+    mints: Tuple<Pubkey>,
+
     pool_registry: Pubkey,
-    mints: (Pubkey, Pubkey),
-    fee_rates: (u16, u16),
-    fee_destination: (Pubkey, Pubkey),
-    price_histories: Vec<Pubkey>,
+    fee_rates: Tuple<u16>,
+    fee_destination: Tuple<Pubkey>,
+    main_vaults: Tuple<Pubkey>,
+    secondary_vaults: Tuple<Pubkey>,
+    oracles: Tuple<Pubkey>,
+
+    price_histories: Tuple<Pubkey>, // this will get updated once pool_registry is updated
+    mean_windows: Tuple<usize>,     // this will get updated once pool_registry is updated
+    std_windows: Tuple<usize>,      // this will get updated once pool_registry is updated
+    bbands: Tuple<BollingerBand<f64>>, // this will get updated once two price history is updated
     has_program_data: bool,
-    main_vaults: (Pubkey, Pubkey),
-    secondary_vaults: (Pubkey, Pubkey),
-    oracles: (Pubkey, Pubkey),
 
     accounts: HashMap<Pubkey, Option<AccountSharedData>>,
+}
+
+impl GfxAmm {
+    #[throws(Error)]
+    fn ready(&self) {
+        if !self.has_program_data
+            || self.price_histories.0 == Pubkey::default()
+            || self.price_histories.1 == Pubkey::default()
+            || self.oracles.0 == Pubkey::default()
+            || self.oracles.1 == Pubkey::default()
+        {
+            throw!(RequiredAccountUpdate);
+        }
+    }
 }
 
 impl Amm for GfxAmm {
@@ -103,8 +125,11 @@ impl Amm for GfxAmm {
         Ok(Self {
             pair: pair_pubkey,
             pool_registry: pair.pool_registry,
+            price_histories: Tuple::default(),
+            mean_windows: Tuple::default(),
+            std_windows: Tuple::default(),
+            bbands: Tuple::default(),
             has_program_data: false,
-            price_histories: vec![],
             fee_destination: (fee_destination_a, fee_destination_b),
             mints,
             fee_rates: pair.fee_rates,
@@ -150,35 +175,77 @@ impl Amm for GfxAmm {
             };
             *acc = Some(account.clone().into());
 
-            if self.price_histories.is_empty() && pubkey == &self.pool_registry {
+            if pubkey == &self.pool_registry {
                 let pool_registry = PoolRegistry::try_deserialize(&mut account.data.as_slice())
                     .map_err(|_| DeserializeFailure(*pubkey, "PoolRegistry".to_string()))?;
 
-                for mint in [self.mints.0, self.mints.1] {
-                    let ssl: &SSLPool = pool_registry
-                        .find_pool(mint)
-                        .map_err(|_| PoolNotFound(mint))?;
-                    self.accounts.insert(ssl.oracle_price_histories[0], None);
-                    self.price_histories.push(ssl.oracle_price_histories[0]);
+                let mint = self.mints.0;
+                let ssl: &SSLPool = pool_registry
+                    .find_pool(mint)
+                    .map_err(|_| PoolNotFound(mint))?;
+                self.accounts.insert(ssl.oracle_price_histories[0], None);
+                self.price_histories.0 = ssl.oracle_price_histories[0];
+                self.mean_windows.0 = ssl.math_params.mean_window as usize;
+                self.std_windows.0 = ssl.math_params.std_window as usize;
+
+                let mint = self.mints.1;
+                let ssl: &SSLPool = pool_registry
+                    .find_pool(mint)
+                    .map_err(|_| PoolNotFound(mint))?;
+                self.accounts.insert(ssl.oracle_price_histories[0], None);
+                self.price_histories.1 = ssl.oracle_price_histories[0];
+                self.mean_windows.1 = ssl.math_params.mean_window as usize;
+                self.std_windows.1 = ssl.math_params.std_window as usize;
+            } else if pubkey == &self.price_histories.0 {
+                let history0 = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
+                    .map_err(|_| DeserializeFailure(*pubkey, "OraclePriceHistory".to_string()))?;
+
+                if !self.accounts.contains_key(&history0.oracle_address) {
+                    self.accounts.insert(history0.oracle_address, None);
                 }
-            } else if !self.price_histories.is_empty()
-                && pubkey == &self.price_histories[0]
-                && self.oracles.0 == Pubkey::default()
-            {
-                let history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
+                self.oracles.0 = history0.oracle_address;
+
+                if let Some(Some(account2)) = self.accounts.get(&self.price_histories.1) {
+                    let history1 = OraclePriceHistory::try_deserialize(&mut account2.data())
+                        .map_err(|_| {
+                            DeserializeFailure(*pubkey, "OraclePriceHistory".to_string())
+                        })?;
+
+                    let bb0 = history1
+                        .bollinger_band(self.mean_windows.1, self.std_windows.1, &history0)
+                        .unwrap();
+
+                    let bb1 = history0
+                        .bollinger_band(self.mean_windows.0, self.std_windows.0, &history1)
+                        .unwrap();
+
+                    self.bbands = (bb0, bb1);
+                }
+            } else if pubkey == &self.price_histories.1 {
+                let history1 = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
                     .map_err(|_| DeserializeFailure(*pubkey, "OraclePriceHistory".to_string()))?;
 
-                self.accounts.insert(history.oracle_address, None);
-                self.oracles.0 = history.oracle_address;
-            } else if !self.price_histories.is_empty()
-                && pubkey == &self.price_histories[1]
-                && self.oracles.1 == Pubkey::default()
-            {
-                let history = OraclePriceHistory::try_deserialize(&mut account.data.as_slice())
-                    .map_err(|_| DeserializeFailure(*pubkey, "OraclePriceHistory".to_string()))?;
+                if !self.accounts.contains_key(&history1.oracle_address) {
+                    self.accounts.insert(history1.oracle_address, None);
+                }
+                self.oracles.1 = history1.oracle_address;
 
-                self.accounts.insert(history.oracle_address, None);
-                self.oracles.1 = history.oracle_address;
+                if let Some(Some(account0)) = self.accounts.get(&self.price_histories.0) {
+                    let history0 = OraclePriceHistory::try_deserialize(&mut account0.data())
+                        .map_err(|_| {
+                            DeserializeFailure(*pubkey, "OraclePriceHistory".to_string())
+                        })?;
+
+                    let bb0 = history1
+                        .bollinger_band(self.mean_windows.1, self.std_windows.1, &history0)
+                        .unwrap();
+
+                    let bb1 = history0
+                        .bollinger_band(self.mean_windows.0, self.std_windows.0, &history1)
+                        .unwrap();
+
+                    self.bbands = (bb0, bb1);
+                }
             } else if !self.has_program_data && pubkey == &gfx_ssl_v2_sdk::ID {
                 let state: UpgradeableLoaderState =
                     account.state().expect("SSL Program is not upgradable?");
@@ -202,30 +269,27 @@ impl Amm for GfxAmm {
             pub static EXECUTOR: RefCell<SBFExecutor> = RefCell::new(SBFExecutor::new(FEATURES).unwrap());
         }
 
-        if !self.has_program_data
-            || self.price_histories.is_empty()
-            || self.oracles.0 == Pubkey::default()
-            || self.oracles.1 == Pubkey::default()
-        {
-            throw!(RequiredAccountUpdate);
-        }
+        self.ready()?;
 
-        let (price_histories, main_vaults, secondary_vaults, oracles) =
+        let (price_histories, main_vaults, secondary_vaults, oracles, bband) =
             if quote_params.input_mint == self.mints.0 {
                 (
-                    (self.price_histories[0], self.price_histories[1]),
+                    (self.price_histories.0, self.price_histories.1),
                     (self.main_vaults.0, self.main_vaults.1),
                     (self.secondary_vaults.0, self.secondary_vaults.1),
                     (self.oracles.0, self.oracles.1),
+                    self.bbands.0,
                 )
             } else {
                 (
-                    (self.price_histories[1], self.price_histories[0]),
+                    (self.price_histories.1, self.price_histories.0),
                     (self.main_vaults.1, self.main_vaults.0),
                     (self.secondary_vaults.1, self.secondary_vaults.0),
                     (self.oracles.1, self.oracles.0),
+                    self.bbands.1,
                 )
             };
+
         let metas = gfx_ssl_v2_sdk::anchor::accounts::Quote {
             pair: self.pair,
             pool_registry: self.pool_registry,
@@ -247,6 +311,7 @@ impl Amm for GfxAmm {
             accounts: metas,
             data: gfx_ssl_v2_sdk::anchor::instruction::Quote {
                 amount_in: quote_params.amount,
+                bband: bytes_of(&bband).to_vec(),
             }
             .data(),
         };
@@ -320,28 +385,22 @@ impl Amm for GfxAmm {
     #[throws(Error)]
     fn get_swap_and_account_metas(&self, swap_params: &SwapParams) -> SwapAndAccountMetas {
         // We need these accounts to be updated in order to create swap account metas
-        if !self.has_program_data
-            || self.price_histories.is_empty()
-            || self.oracles.0 == Pubkey::default()
-            || self.oracles.1 == Pubkey::default()
-        {
-            throw!(RequiredAccountUpdate);
-        }
+        self.ready()?;
 
         let (mint_in, mint_out, input_token_price_history, output_token_price_history) =
             if swap_params.source_mint == self.mints.0 {
                 (
                     self.mints.0,
                     self.mints.1,
-                    self.price_histories[0],
-                    self.price_histories[1],
+                    self.price_histories.0,
+                    self.price_histories.1,
                 )
             } else {
                 (
                     self.mints.1,
                     self.mints.0,
-                    self.price_histories[1],
-                    self.price_histories[0],
+                    self.price_histories.1,
+                    self.price_histories.0,
                 )
             };
         let fee_destination = if swap_params.source_mint == self.mints.1 {

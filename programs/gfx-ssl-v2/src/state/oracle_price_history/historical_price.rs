@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use bytemuck::{Pod, Zeroable};
 use rust_decimal::Decimal;
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
@@ -21,6 +22,12 @@ pub struct HistoricalDecimal {
 impl Into<Decimal> for HistoricalDecimal {
     fn into(self) -> Decimal {
         Decimal::new(self.num, self.scale)
+    }
+}
+
+impl Into<f64> for HistoricalDecimal {
+    fn into(self) -> f64 {
+        self.num as f64 / 10f64.powi(self.scale.try_into().unwrap())
     }
 }
 
@@ -72,9 +79,12 @@ impl AccountSerialize for HistoricalPrice {
 /// mean and std deviation.
 #[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
-pub struct BollingerBand {
+pub struct BollingerBand<N> {
     /// Exponential moving average
-    pub mean: Decimal,
+    pub mean: N,
     /// Standard deviation
-    pub std: Decimal,
+    pub std: N,
 }
+
+unsafe impl<N> Pod for BollingerBand<N> where N: Pod {}
+unsafe impl<N> Zeroable for BollingerBand<N> where N: Zeroable {}

@@ -11,6 +11,7 @@ anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 anyhow = { workspace = true }
 bincode = { workspace = true }
+bytemuck = { workspace = true }
 fehler = { workspace = true }
 gfx-ssl-v2-sdk = { workspace = true }
 jupiter-amm-interface = { workspace = true }
