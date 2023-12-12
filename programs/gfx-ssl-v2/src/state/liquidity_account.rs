@@ -56,12 +56,12 @@ impl Display for LiquidityAccount {
             "Last observed total accumulated profit: {}",
             self.last_observed_tap
         )?;
-        let last_claimed = DateTime::<Utc>::from_utc(
+        let last_claimed = DateTime::<Utc>::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_opt(self.last_claimed, 0).unwrap(),
             Utc,
         );
         writeln!(f, "Last claimed (UTC): {}", last_claimed)?;
-        let created_at = DateTime::<Utc>::from_utc(
+        let created_at = DateTime::<Utc>::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_opt(self.created_at, 0).unwrap(),
             Utc,
         );

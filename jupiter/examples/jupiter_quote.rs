@@ -1,15 +1,19 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs::File,
+    io::Read,
+    path::Path,
     time::Instant,
 };
 
+use anchor_lang::prelude::UpgradeableLoaderState;
 use anyhow::anyhow;
 use clap::Parser;
 use gfx_ssl_v2_jupiter::jupiter::GfxAmm;
 use gfx_ssl_v2_sdk::state::Pair;
 use jupiter_amm_interface::{Amm, KeyedAccount, Quote, QuoteParams};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{pubkey, pubkey::Pubkey};
+use solana_sdk::{account::Account, pubkey, pubkey::Pubkey};
 use url::Url;
 
 const POOL_REGISTRY: Pubkey = pubkey!("F451mjRqGEu1azbj46v4FuMEt1CacaPHQKUHzuTqKp4R");
@@ -35,11 +39,12 @@ pub fn get_quote(
     let mut gfx_amm = GfxAmm::from_keyed_account(&keyed_account)
         .map_err(|e| anyhow!("Could not make GfxAmm instance from pair account: {}", e))?;
 
-    // Perform two account updates
+    // Perform three account updates
+    // "../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so"
     let mut updated = HashSet::new();
-    update_accounts(&mut updated, &mut gfx_amm, client);
-    update_accounts(&mut updated, &mut gfx_amm, client);
-    update_accounts(&mut updated, &mut gfx_amm, client);
+    update_accounts(&mut updated, &mut gfx_amm, client, None);
+    update_accounts(&mut updated, &mut gfx_amm, client, None);
+    update_accounts(&mut updated, &mut gfx_amm, client, None);
 
     let quote = gfx_amm.quote(&QuoteParams {
         amount,
@@ -61,13 +66,46 @@ pub fn get_quote(
     quote
 }
 
-pub fn update_accounts(updated: &mut HashSet<Pubkey>, gfx_amm: &mut GfxAmm, client: &RpcClient) {
+pub fn update_accounts(
+    updated: &mut HashSet<Pubkey>,
+    gfx_amm: &mut GfxAmm,
+    client: &RpcClient,
+    local: Option<&Path>,
+) {
     let accounts_to_update = gfx_amm.get_accounts_to_update();
     let accounts_map = HashMap::from_iter(
         accounts_to_update
             .into_iter()
             .filter(|key| updated.insert(*key))
-            .map(|pubkey| (pubkey, client.get_account(&pubkey).unwrap())),
+            .map(|pubkey| (pubkey, client.get_account(&pubkey).unwrap()))
+            .map(|(key, acc)| {
+                if let Some(local) = local {
+                    if key == pubkey!("DLY1NyXhDJd2xDw8Yj6P4jQXVSoUvbGZAPT5KzhWBVNq") {
+                        let mut data = bincode::serialize(&UpgradeableLoaderState::ProgramData {
+                            slot: 0,
+                            upgrade_authority_address: None,
+                        })
+                        .unwrap();
+                        data.resize(UpgradeableLoaderState::size_of_programdata_metadata(), 0);
+                        File::open(local).unwrap().read_to_end(&mut data).unwrap();
+
+                        (
+                            key,
+                            Account {
+                                owner: pubkey!("BPFLoaderUpgradeab1e11111111111111111111111"),
+                                lamports: 0,
+                                rent_epoch: 0,
+                                executable: false,
+                                data,
+                            },
+                        )
+                    } else {
+                        (key, acc)
+                    }
+                } else {
+                    (key, acc)
+                }
+            }),
     );
     gfx_amm.update(&accounts_map).unwrap();
 }
