@@ -41,26 +41,6 @@ static BPF_LOADER: Lazy<AccountSharedData> = Lazy::new(|| {
     .into()
 });
 
-#[repr(C)]
-pub struct SwapResult {
-    pub amount_in: u64,
-    pub fee_paid: u64,
-    pub amount_out: u64,
-    pub price_impact: f64,
-    pub swap_price: f64,
-    pub insta_price: f64,
-    pub oracle_price: f64,
-    pub iter: u32,
-}
-
-#[repr(C)]
-pub struct PriceQuote {
-    pub amount_in: u64,
-    pub amount_out: u64,
-    pub fees_paid: u64,
-    pub price_impact: f64,
-}
-
 #[derive(Debug, Clone)]
 struct AccountWithKey {
     key: Pubkey,
