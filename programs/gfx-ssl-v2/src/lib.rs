@@ -115,7 +115,7 @@ pub mod gfx_ssl_v2 {
         Ok(())
     }
 
-    pub fn quote(ctx: Context<Quote>, amount_in: u64, bband: Vec<u8>) -> Result<()> {
+    pub fn quote(ctx: Context<Quote>, amount_in: u64, bband: Option<Vec<u8>>) -> Result<()> {
         Ok(())
     }
 }

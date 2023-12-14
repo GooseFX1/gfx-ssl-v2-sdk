@@ -18,8 +18,9 @@ use solana_bpf_simulator::{SBFExecutor, WrappedSlot, FEATURES};
 use solana_sdk::{
     account::{Account, AccountSharedData, ReadableAccount},
     account_utils::StateMut,
+    bpf_loader_upgradeable,
     message::{LegacyMessage, Message, SanitizedMessage},
-    native_loader, pubkey,
+    native_loader,
     pubkey::Pubkey,
     sysvar::clock,
 };
@@ -311,7 +312,7 @@ impl Amm for GfxAmm {
             accounts: metas,
             data: gfx_ssl_v2_sdk::anchor::instruction::Quote {
                 amount_in: quote_params.amount,
-                bband: bytes_of(&bband).to_vec(),
+                bband: Some(bytes_of(&bband).to_vec()),
             }
             .data(),
         };
@@ -331,12 +332,12 @@ impl Amm for GfxAmm {
             let slot = clock.slot;
             sbf.sysvar_cache_mut().set_clock(clock);
 
-            let mut loader = sbf.loader(|key| {
-                if key == &pubkey!("BPFLoaderUpgradeab1e11111111111111111111111") {
+            let mut loader = sbf.loader(|&key| {
+                if key == bpf_loader_upgradeable::ID {
                     return Some(BPF_LOADER.clone());
                 }
 
-                self.accounts.get(key).cloned().flatten()
+                self.accounts.get(&key).cloned().flatten()
             });
 
             let loaded_transaction = loader.load_transaction_account(&message)?;
