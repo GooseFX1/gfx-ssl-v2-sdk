@@ -2,10 +2,14 @@
 use crate::utils::{u128_from_bytes, u16_to_bps};
 use crate::{utils::token_amount, PDAIdentifier, SSLV2Error};
 use anchor_lang::prelude::*;
+use bytemuck::{Zeroable, Pod};
 use rust_decimal::Decimal;
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
 use std::mem;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use borsh::{BorshSerialize, BorshDeserialize};
+
 
 /// Scale used to record the historical USD volume swapped.
 const USD_VOLUME_DECIMALS: u32 = 6;
@@ -31,7 +35,7 @@ pub struct Pair {
     /// Matched to mints.0 and mints.1 respectively.
     /// Fee rates are allowed to be different depending on the input mint.
     /// They are expressed as BPS (theoretical maximum = 10_000).
-    pub fee_rates: (u16, u16),
+    pub normal_fee_rates: (u16, u16),
 
     /// Historical value that records the total amount of fees collected
     /// over the lifetime of the pair.
@@ -47,7 +51,9 @@ pub struct Pair {
     /// Recorded as native token amounts.
     pub total_internally_swapped: ([u8; 16], [u8; 16]),
 
-    pub _space: [u8; 128],
+    pub preferred_fee_rates: (u16, u16),
+
+    pub _space: Space124,
 }
 
 // Compile-time struct size check. Successful deserialization requires
@@ -60,11 +66,12 @@ impl Default for Pair {
             pool_registry: Default::default(),
             mints: (Default::default(), Default::default()),
             fee_collector: (Default::default(), Default::default()),
-            fee_rates: (0, 0),
+            normal_fee_rates: (0, 0),
             total_fees_generated_native: ([0; 16], [0; 16]),
             total_historical_volume: [0; 16],
             total_internally_swapped: ([0; 16], [0; 16]),
-            _space: [0; 128],
+            preferred_fee_rates: (0, 0),
+            _space: Space124 { _padding: [0; 124] },
         }
     }
 }
@@ -83,7 +90,8 @@ impl Display for Pair {
         )?;
         writeln!(f, "Mint A: {}", self.mints.0)?;
         writeln!(f, "\tExternal Fee Destination: {}", self.fee_collector.0)?;
-        writeln!(f, "\tFee Rate {}", u16_to_bps(self.fee_rates.0))?;
+        writeln!(f, "\tNormal Fee Rate {}", u16_to_bps(self.normal_fee_rates.0))?;
+        writeln!(f, "\tPreferred Fee Rate {}", u16_to_bps(self.preferred_fee_rates.0))?;
         writeln!(
             f,
             "\tFees Generated (Native): {}",
@@ -97,7 +105,8 @@ impl Display for Pair {
         writeln!(f, "")?;
         writeln!(f, "Mint B: {}", self.mints.1)?;
         writeln!(f, "\tExternal Fee Destination: {}", self.fee_collector.1)?;
-        writeln!(f, "\tFee Rate {}", u16_to_bps(self.fee_rates.1))?;
+        writeln!(f, "\tNormal Fee Rate {}", u16_to_bps(self.normal_fee_rates.1))?;
+        writeln!(f, "\tPreferred Fee Rate {}", u16_to_bps(self.preferred_fee_rates.1))?;
         writeln!(
             f,
             "\tFees Generated (Native): {}",
@@ -139,13 +148,16 @@ impl Pair {
         mint_two: Pubkey,
         mint_one_fee_destination: Pubkey,
         mint_two_fee_destination: Pubkey,
-        mint_one_fee_rate: u16,
-        mint_two_fee_rate: u16,
+        mint_one_normal_fee_rate: u16,
+        mint_two_normal_fee_rate: u16,
+        mint_one_preferred_fee_rate: u16,
+        mint_two_preferred_fee_rate: u16,
     ) {
         self.pool_registry = pool_registry;
         self.mints = (mint_one, mint_two);
         self.fee_collector = (mint_one_fee_destination, mint_two_fee_destination);
-        self.fee_rates = (mint_one_fee_rate, mint_two_fee_rate);
+        self.normal_fee_rates = (mint_one_normal_fee_rate, mint_two_normal_fee_rate);
+        self.preferred_fee_rates = (mint_one_preferred_fee_rate, mint_two_preferred_fee_rate);
     }
 
     /// Find the appropriate fee rate and collector, and verify the in/out mints match the pair.
@@ -154,18 +166,20 @@ impl Pair {
         &self,
         mint_in: Pubkey,
         mint_out: Pubkey,
-    ) -> std::result::Result<(Decimal, Pubkey, SwapIxMintOrdering), SSLV2Error> {
+    ) -> std::result::Result<(Decimal, Decimal, Pubkey, SwapIxMintOrdering), SSLV2Error> {
         if (mint_in, mint_out) == self.mints {
             Ok((
-                Decimal::new(self.fee_rates.1 as i64, 4),
+                Decimal::new(self.normal_fee_rates.1 as i64, 4),
+                Decimal::new(self.preferred_fee_rates.1 as i64, 4),
                 self.fee_collector.1,
                 SwapIxMintOrdering::InOut,
             ))
         } else if (mint_out, mint_in) == self.mints {
             Ok((
-                Decimal::new(self.fee_rates.0 as i64, 4),
+                Decimal::new(self.normal_fee_rates.0 as i64, 4),
+                Decimal::new(self.preferred_fee_rates.0 as i64, 4),
                 self.fee_collector.0,
-                SwapIxMintOrdering::InOut,
+                SwapIxMintOrdering::OutIn,
             ))
         } else {
             Err(SSLV2Error::MintNotFound)
@@ -207,4 +221,58 @@ pub enum SwapIxMintOrdering {
     InOut,
     /// When pair.mints = (mint_out, mint_in)
     OutIn,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq,)]
+#[repr(C)]
+pub struct Space124 {
+    pub _padding: [u8; 124],
+}
+
+impl Default for Space124 {
+    fn default() -> Self {
+        Self { _padding: [0u8; 124] }
+    }
+}
+
+impl Serialize for Space124 {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(&self._padding)
+    }
+}
+
+impl<'de> Deserialize<'de> for Space124 {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: &[u8] = serde::Deserialize::deserialize(deserializer)?;
+        let mut array = [0u8; 124];
+        array[..bytes.len()].copy_from_slice(bytes);
+        Ok(Self { _padding: array })
+    }
+}
+
+unsafe impl Zeroable for Space124 {}
+unsafe impl Pod for Space124 {}
+
+impl BorshSerialize for Space124 {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::result::Result<(), std::io::Error> {
+        writer.write_all(&self._padding)?;
+        Ok(())
+    }
+}
+
+impl BorshDeserialize for Space124 {
+    fn deserialize(buf: &mut &[u8]) -> std::result::Result<Self, std::io::Error> {
+        let mut array = [0u8; 124];
+        // copy from buf to array
+        let (src, dst) = buf.split_at(std::cmp::min(buf.len(), array.len()));
+        array[..src.len()].copy_from_slice(src);
+        *buf = dst;
+        Ok(Self { _padding: array })
+    }
 }

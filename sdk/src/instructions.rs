@@ -224,8 +224,10 @@ pub fn suspend_ssl(
 }
 
 pub fn create_pair(
-    mint_one_fee_rate: u16,
-    mint_two_fee_rate: u16,
+    mint_one_normal_fee_rate: u16, 
+    mint_two_normal_fee_rate: u16,
+    mint_one_preferred_fee_rate: u16, 
+    mint_two_preferred_fee_rate: u16,
     admin: Pubkey,
     pool_registry: Pubkey,
     mint_one: Pubkey,
@@ -238,16 +240,20 @@ pub fn create_pair(
         mint_two,
         mint_one_fee_destination,
         mint_two_fee_destination,
-        mint_one_fee_rate,
-        mint_two_fee_rate,
+        mint_one_normal_fee_rate,
+        mint_two_normal_fee_rate,
+        mint_one_preferred_fee_rate, 
+        mint_two_preferred_fee_rate,
     ) = if Pair::normalize_mint_order(mint_one, mint_two) == (mint_one, mint_two) {
         (
             mint_one,
             mint_two,
             mint_one_fee_destination,
             mint_two_fee_destination,
-            mint_one_fee_rate,
-            mint_two_fee_rate,
+            mint_one_normal_fee_rate,
+            mint_two_normal_fee_rate,
+            mint_one_preferred_fee_rate, 
+            mint_two_preferred_fee_rate,
         )
     } else {
         (
@@ -255,14 +261,18 @@ pub fn create_pair(
             mint_one,
             mint_two_fee_destination,
             mint_one_fee_destination,
-            mint_two_fee_rate,
-            mint_one_fee_rate,
+            mint_two_normal_fee_rate,
+            mint_one_normal_fee_rate,
+            mint_two_preferred_fee_rate,
+            mint_one_preferred_fee_rate, 
         )
     };
 
     let data = gfx_ssl_v2_interface::instruction::CreatePair {
-        mint_one_fee_rate,
-        mint_two_fee_rate,
+        mint_one_normal_fee_rate,
+        mint_two_normal_fee_rate,
+        mint_one_preferred_fee_rate, 
+        mint_two_preferred_fee_rate,
     }
     .data();
 
@@ -303,31 +313,45 @@ pub fn config_pair(
     pool_registry: Pubkey,
     mint_one: Pubkey,
     mint_two: Pubkey,
-    mint_one_fee_rate: Option<u16>,
-    mint_two_fee_rate: Option<u16>,
+    mint_one_normal_fee_rate: Option<u16>,
+    mint_two_normal_fee_rate: Option<u16>,
+    mint_one_preferred_fee_rate: Option<u16>,
+    mint_two_preferred_fee_rate: Option<u16>,
     mint_one_fee_destination: Option<Pubkey>,
     mint_two_fee_destination: Option<Pubkey>,
 ) -> Instruction {
-    let (mint_one_fee_rate, mint_two_fee_rate, mint_one_fee_destination, mint_two_fee_destination) =
+    let (
+      mint_one_normal_fee_rate,
+      mint_two_normal_fee_rate,
+      mint_one_preferred_fee_rate, 
+      mint_two_preferred_fee_rate,
+      mint_one_fee_destination, 
+      mint_two_fee_destination) =
         if (mint_one, mint_two) == Pair::normalize_mint_order(mint_one, mint_two) {
             (
-                mint_one_fee_rate,
-                mint_two_fee_rate,
+                mint_one_normal_fee_rate,
+                mint_two_normal_fee_rate,
+                mint_one_preferred_fee_rate, 
+                mint_two_preferred_fee_rate,
                 mint_one_fee_destination,
                 mint_two_fee_destination,
             )
         } else {
             (
-                mint_two_fee_rate,
-                mint_one_fee_rate,
+                mint_two_normal_fee_rate,
+                mint_one_normal_fee_rate,
+                mint_two_preferred_fee_rate,
+                mint_one_preferred_fee_rate,
                 mint_two_fee_destination,
                 mint_one_fee_destination,
             )
         };
 
     let data = gfx_ssl_v2_interface::instruction::ConfigPair {
-        mint_one_fee_rate,
-        mint_two_fee_rate,
+        mint_one_normal_fee_rate,
+        mint_two_normal_fee_rate,
+        mint_one_preferred_fee_rate, 
+        mint_two_preferred_fee_rate,
     }
     .data();
 
