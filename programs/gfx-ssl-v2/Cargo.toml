@@ -24,7 +24,7 @@ num-traits = { workspace = true }
 pyth-sdk-solana = { workspace = true }
 rust_decimal = { workspace = true }
 switchboard-v2 = { workspace = true }
-
+borsh_10 = { package = "borsh", version = "0.10.3" }
 chrono = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true  }

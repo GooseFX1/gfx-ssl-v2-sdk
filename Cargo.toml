@@ -22,6 +22,7 @@ anchor-lang = "0.28"
 anchor-spl = { version = "0.28", default-features = false, features = ["mint", "token", "associated_token"] }
 anyhow = "1"
 bytemuck = "1.13"
+borsh_10 = { package = "borsh", version = "0.10.3" }
 chrono = { version = "0.4" }
 gfx-ssl-v2-interface = { path = "programs/gfx-ssl-v2", features = ["no-entrypoint"] }
 num-traits = "0.2"

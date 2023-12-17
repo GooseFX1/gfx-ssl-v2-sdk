@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use std::fmt::{Display, Formatter};
 use std::mem;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use borsh::{BorshSerialize, BorshDeserialize};
+use borsh_10::{BorshSerialize, BorshDeserialize};
 
 
 /// Scale used to record the historical USD volume swapped.
@@ -274,5 +274,8 @@ impl BorshDeserialize for Space124 {
         array[..src.len()].copy_from_slice(src);
         *buf = dst;
         Ok(Self { _padding: array })
+    }
+    fn deserialize_reader<R>(_: &mut R) -> std::result::Result<Self, std::io::Error> where R: std::io::Read {
+      Ok(Space124::default())
     }
 }
