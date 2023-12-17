@@ -60,7 +60,7 @@ pub fn u128_ui_amount(raw_amount: u128, mint_decimals: Option<u32>) -> Option<St
 }
 
 pub fn ui_timestamp(raw_timestamp: i64) -> String {
-    DateTime::<Utc>::from_utc(
+    DateTime::<Utc>::from_naive_utc_and_offset(
         NaiveDateTime::from_timestamp_opt(raw_timestamp, 0).unwrap(),
         Utc,
     )

@@ -2,14 +2,13 @@
 use crate::utils::{u128_from_bytes, u16_to_bps};
 use crate::{utils::token_amount, PDAIdentifier, SSLV2Error};
 use anchor_lang::prelude::*;
-use bytemuck::{Zeroable, Pod};
+use borsh::{BorshDeserialize, BorshSerialize};
+use bytemuck::{Pod, Zeroable};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
 use std::mem;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use borsh_10::{BorshSerialize, BorshDeserialize};
-
 
 /// Scale used to record the historical USD volume swapped.
 const USD_VOLUME_DECIMALS: u32 = 6;
@@ -90,8 +89,16 @@ impl Display for Pair {
         )?;
         writeln!(f, "Mint A: {}", self.mints.0)?;
         writeln!(f, "\tExternal Fee Destination: {}", self.fee_collector.0)?;
-        writeln!(f, "\tNormal Fee Rate {}", u16_to_bps(self.normal_fee_rates.0))?;
-        writeln!(f, "\tPreferred Fee Rate {}", u16_to_bps(self.preferred_fee_rates.0))?;
+        writeln!(
+            f,
+            "\tNormal Fee Rate {}",
+            u16_to_bps(self.normal_fee_rates.0)
+        )?;
+        writeln!(
+            f,
+            "\tPreferred Fee Rate {}",
+            u16_to_bps(self.preferred_fee_rates.0)
+        )?;
         writeln!(
             f,
             "\tFees Generated (Native): {}",
@@ -105,8 +112,16 @@ impl Display for Pair {
         writeln!(f, "")?;
         writeln!(f, "Mint B: {}", self.mints.1)?;
         writeln!(f, "\tExternal Fee Destination: {}", self.fee_collector.1)?;
-        writeln!(f, "\tNormal Fee Rate {}", u16_to_bps(self.normal_fee_rates.1))?;
-        writeln!(f, "\tPreferred Fee Rate {}", u16_to_bps(self.preferred_fee_rates.1))?;
+        writeln!(
+            f,
+            "\tNormal Fee Rate {}",
+            u16_to_bps(self.normal_fee_rates.1)
+        )?;
+        writeln!(
+            f,
+            "\tPreferred Fee Rate {}",
+            u16_to_bps(self.preferred_fee_rates.1)
+        )?;
         writeln!(
             f,
             "\tFees Generated (Native): {}",
@@ -223,7 +238,7 @@ pub enum SwapIxMintOrdering {
     OutIn,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq,)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
 pub struct Space124 {
     pub _padding: [u8; 124],
@@ -231,7 +246,9 @@ pub struct Space124 {
 
 impl Default for Space124 {
     fn default() -> Self {
-        Self { _padding: [0u8; 124] }
+        Self {
+            _padding: [0u8; 124],
+        }
     }
 }
 
@@ -260,7 +277,10 @@ unsafe impl Zeroable for Space124 {}
 unsafe impl Pod for Space124 {}
 
 impl BorshSerialize for Space124 {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::result::Result<(), std::io::Error> {
+    fn serialize<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> std::result::Result<(), std::io::Error> {
         writer.write_all(&self._padding)?;
         Ok(())
     }
@@ -275,7 +295,10 @@ impl BorshDeserialize for Space124 {
         *buf = dst;
         Ok(Self { _padding: array })
     }
-    fn deserialize_reader<R>(_: &mut R) -> std::result::Result<Self, std::io::Error> where R: std::io::Read {
-      Ok(Space124::default())
+    fn deserialize_reader<R>(_: &mut R) -> std::result::Result<Self, std::io::Error>
+    where
+        R: std::io::Read,
+    {
+        Ok(Space124::default())
     }
 }
