@@ -87,7 +87,8 @@ pub struct PairMintParams {
     #[serde(with = "pubkey")]
     pub fee_destination: Pubkey,
     /// In basis-points, max 10,000
-    pub fee_bps: u16,
+    pub normal_fee_bps: u16,
+    pub preferred_fee_bps: u16,
 }
 
 /// For Anchor instruction encoding.

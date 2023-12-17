@@ -61,16 +61,20 @@ pub mod gfx_ssl_v2 {
 
     pub fn create_pair(
         ctx: Context<CreatePair>,
-        mint_one_fee_rate: u16,
-        mint_two_fee_rate: u16,
+        mint_one_normal_fee_rate: u16, 
+        mint_two_normal_fee_rate: u16,
+        mint_one_preferred_fee_rate: u16, 
+        mint_two_preferred_fee_rate: u16
     ) -> Result<()> {
         Ok(())
     }
 
     pub fn config_pair(
         ctx: Context<ConfigPair>,
-        mint_one_fee_rate: Option<u16>,
-        mint_two_fee_rate: Option<u16>,
+        mint_one_normal_fee_rate: Option<u16>,
+        mint_two_normal_fee_rate: Option<u16>,
+        mint_one_preferred_fee_rate: Option<u16>,
+        mint_two_preferred_fee_rate: Option<u16>,
     ) -> Result<()> {
         Ok(())
     }

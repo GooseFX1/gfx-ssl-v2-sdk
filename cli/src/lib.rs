@@ -157,8 +157,11 @@ pub enum Subcommand {
         #[clap(long, parse(try_from_str=Pubkey::try_from))]
         fee_destination: Option<Pubkey>,
         #[clap(long)]
-        /// Configures the pair to a new fee BPS for the specified mint.
-        fee_bps: Option<u16>,
+        /// Configures the pair to a new normal fee BPS for the specified mint.
+        normal_fee_bps: Option<u16>,
+        #[clap(long)]
+        /// Configures the pair to a new preferred fee BPS for the specified mint.
+        preferred_fee_bps: Option<u16>,
     },
     /// Crank all price histories under a pool registry.
     /// This is compute-intensive and likely will not succeed
@@ -757,8 +760,10 @@ impl Opt {
                         anyhow!("Failed to get pool registry at {}: {}", pool_registry, e)
                     })?;
                 let ix = create_pair(
-                    pair_params.0.fee_bps,
-                    pair_params.1.fee_bps,
+                    pair_params.0.normal_fee_bps,
+                    pair_params.1.normal_fee_bps,
+                    pair_params.0.preferred_fee_bps,
+                    pair_params.1.preferred_fee_bps,
                     pool_registry_data.admin,
                     pool_registry,
                     pair_params.0.mint,
@@ -792,7 +797,8 @@ impl Opt {
                 pair,
                 mint,
                 fee_destination,
-                fee_bps,
+                normal_fee_bps,
+                preferred_fee_bps,
             } => {
                 let pool_registry_data = get_pool_registry_blocking(&pool_registry, &client)
                     .map_err(|e| {
@@ -808,10 +814,10 @@ impl Opt {
                     return Err(anyhow!("Mint not found in pair"));
                 }
 
-                let (mint_one_fee_rate, mint_two_fee_rate) = if is_mint_one {
-                    (fee_bps, None)
+                let (mint_one_normal_fee_rate, mint_one_preferred_fee_rate, mint_two_normal_fee_rate, mint_two_preferred_fee_rate) = if is_mint_one {
+                    (normal_fee_bps, preferred_fee_bps, None, None)
                 } else {
-                    (None, fee_bps)
+                    (None, None, normal_fee_bps, preferred_fee_bps)
                 };
                 let (mint_one_fee_dest, mint_two_fee_dest) = if is_mint_one {
                     (fee_destination, None)
@@ -823,8 +829,10 @@ impl Opt {
                     pool_registry,
                     pair.mints.0,
                     pair.mints.1,
-                    mint_one_fee_rate,
-                    mint_two_fee_rate,
+                    mint_one_normal_fee_rate,
+                    mint_two_normal_fee_rate,
+                    mint_one_preferred_fee_rate,
+                    mint_two_preferred_fee_rate,
                     mint_one_fee_dest,
                     mint_two_fee_dest,
                 );
@@ -1145,7 +1153,7 @@ impl Opt {
                                 mint_out,
                             )
                         })?;
-                let (_, fee_destination, _) = pair
+                let (_, _, fee_destination, _) = pair
                     .find_fee_attrs(mint_in, mint_out)
                     .map_err(|_| anyhow!("Could not resolve fee destination from pair"))?;
                 let compute_budget_ix = Instruction::new_with_borsh(
