@@ -170,6 +170,72 @@ impl OraclePriceHistory {
         }
         Ok(price)
     }
+
+    /// Mean and Standard deviation
+    /// NOTE: This does not check for price staleness. You must explicitly call
+    /// the [HistoricalPrice::ensure_recency] method on a [HistoricalPrice] instance.
+    pub fn bollinger_band(
+        &self,
+        mean_window: usize,
+        std_window: usize,
+        input_token_history: &OraclePriceHistory,
+    ) -> Result<BollingerBand<f64>> {
+        if mean_window == 0 || std_window == 0 {
+            return err!(SSLV2Error::MathError);
+        }
+        if (self.num_updates as usize) < mean_window.max(std_window) {
+            return err!(SSLV2Error::EmaOrStdWindowTooLarge);
+        }
+        if (input_token_history.num_updates as usize) < mean_window.max(std_window) {
+            return err!(SSLV2Error::EmaOrStdWindowTooLarge);
+        }
+        let output_token_prices = AccountHistoryIterator::from(self);
+        let input_token_prices = AccountHistoryIterator::from(input_token_history);
+        // Values to calculate the common mean
+        let mut mean_sum = 0f64;
+        let mut std_sum = 0f64;
+        // Copy the items to iterate again and calculate variance.
+        let mut std_items = Vec::with_capacity(mean_window.max(std_window));
+        // iterate over the window
+        let mut iterator = output_token_prices
+            .zip(input_token_prices)
+            .take(mean_window.max(std_window))
+            .enumerate()
+            .peekable();
+        if iterator.peek().is_none() {
+            return err!(SSLV2Error::PriceHistoryEmpty);
+        }
+
+        // If the first element is some, then start with that initial value,
+        // and iterate over the remaining values, calculating mean.
+        // From the rest of the elements,
+        // calculate the mean, and gather the items for variance calculation.
+        for (idx, elem) in iterator {
+            let price = Into::<f64>::into(elem.0.price) / Into::<f64>::into(elem.1.price);
+            if idx < mean_window {
+                #[cfg(feature = "debug-msg")]
+                msg!("(mean) next price: {}", price);
+                mean_sum = mean_sum + price;
+            }
+            if idx < std_window {
+                std_sum = std_sum + price;
+                std_items.push(price);
+            }
+        }
+
+        // Standard deviation
+        let std_mean = std_sum / std_window as f64;
+        let mut variance = 0f64;
+        for elem in std_items {
+            let diff = std_mean - elem;
+            variance = variance + diff * diff;
+        }
+        let variance = variance / std_window as f64;
+        let std = variance.sqrt();
+        let mean = mean_sum / mean_window as f64;
+
+        Ok(BollingerBand { mean, std })
+    }
 }
 
 impl AccountSerialize for OraclePriceHistory {

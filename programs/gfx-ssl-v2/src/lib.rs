@@ -114,4 +114,8 @@ pub mod gfx_ssl_v2 {
     pub fn swap(ctx: Context<Swap>, amount_in: u64, min_out: u64) -> Result<()> {
         Ok(())
     }
+
+    pub fn quote(ctx: Context<Quote>, amount_in: u64, bband: Option<Vec<u8>>) -> Result<()> {
+        Ok(())
+    }
 }

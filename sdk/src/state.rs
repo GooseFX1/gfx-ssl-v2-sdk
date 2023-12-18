@@ -1,6 +1,6 @@
 use anchor_lang::{prelude::AccountMeta, solana_program::pubkey::Pubkey, ToAccountMetas};
 use anchor_spl::{associated_token::get_associated_token_address, token};
-use gfx_ssl_v2_interface::state::*;
+pub use gfx_ssl_v2_interface::state::*;
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client};
 
 use crate::{
