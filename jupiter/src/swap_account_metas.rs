@@ -10,6 +10,8 @@ pub fn get_account_metas_for_swap(
     mint_out: Pubkey,
     input_token_oracle: Pubkey,
     output_token_oracle: Pubkey,
+    backup_input_token_oracle: Pubkey,
+    backup_output_token_oracle: Pubkey,
     fee_destination: Pubkey,
 ) -> Vec<AccountMeta> {
     let pair = Pair::address(pool_registry, mint_in, mint_out);
@@ -20,6 +22,10 @@ pub fn get_account_metas_for_swap(
         OraclePriceHistory::address(&pool_registry, &input_token_oracle);
     let output_token_price_history =
         OraclePriceHistory::address(&pool_registry, &output_token_oracle);
+    let backup_input_token_price_history =
+        OraclePriceHistory::address(&pool_registry, &backup_input_token_oracle);
+    let backup_output_token_price_history =
+        OraclePriceHistory::address(&pool_registry, &backup_output_token_oracle);
     let ssl_pool_in_signer = SSLPool::signer_address(pool_registry, mint_in);
     let ssl_pool_out_signer = SSLPool::signer_address(pool_registry, mint_out);
     let ssl_in_main_vault = get_associated_token_address(&ssl_pool_in_signer, &mint_in);
@@ -45,6 +51,10 @@ pub fn get_account_metas_for_swap(
         output_token_oracle,
         input_token_price_history,
         input_token_oracle,
+        backup_output_token_price_history,
+        backup_output_token_oracle,
+        backup_input_token_price_history,
+        backup_input_token_oracle,
         event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }
