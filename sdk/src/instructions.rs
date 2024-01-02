@@ -565,6 +565,8 @@ pub fn swap(
     mint_out: Pubkey,
     input_token_oracle: Pubkey,
     output_token_oracle: Pubkey,
+    backup_input_token_oracle: Pubkey,
+    backup_output_token_oracle: Pubkey,
     fee_destination: Pubkey,
 ) -> Instruction {
     let data = gfx_ssl_v2_interface::instruction::Swap { amount_in, min_out }.data();
@@ -578,6 +580,8 @@ pub fn swap(
             mint_out,
             input_token_oracle,
             output_token_oracle,
+            backup_input_token_oracle,
+            backup_output_token_oracle,
             fee_destination,
         ),
         data,

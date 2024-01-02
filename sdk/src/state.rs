@@ -29,31 +29,40 @@ pub fn get_all_oracles_and_price_histories(
     let mut out = vec![];
     for idx in 0usize..pool_registry.num_entries as usize {
         let pool = &pool_registry.entries[idx];
-        let price_history_addr = pool.oracle_price_histories[0];
-        let oph_data = get_oracle_price_history_blocking(&price_history_addr, client)?;
-        out.push(OracleAndPriceHistory {
-            price_history: price_history_addr,
-            oracle: oph_data.oracle_address,
-        });
+        for price_history_addr in &pool.oracle_price_histories {
+            if *price_history_addr != Pubkey::default() {
+                let oph_data = get_oracle_price_history_blocking(&price_history_addr, client)?;
+                out.push(OracleAndPriceHistory {
+                    price_history: *price_history_addr,
+                    oracle: oph_data.oracle_address,
+                });
+            }
+        }
     }
 
     Ok(out)
 }
 
 /// Acquire an individual oracle and price history pairing, rather than all of them.
-pub fn get_oracle_and_price_history(
+pub fn get_oracles_and_histories_for_mint(
     pool_registry: &PoolRegistry,
     mint: Pubkey,
     client: &rpc_client::RpcClient,
-) -> Result<OracleAndPriceHistory> {
+) -> Result<Vec<OracleAndPriceHistory>> {
     let pool = pool_registry
         .find_pool(mint)
         .map_err(|_| GfxSslSdkError::PoolNotFound(mint))?;
-    let oph_data = get_oracle_price_history_blocking(&pool.oracle_price_histories[0], client)?;
-    Ok(OracleAndPriceHistory {
-        price_history: pool.oracle_price_histories[0],
-        oracle: oph_data.oracle_address,
-    })
+    let mut oracles_and_price_histories = vec![];
+    for price_history in &pool.oracle_price_histories {
+        if *price_history != Pubkey::default() {
+            let oph_data = get_oracle_price_history_blocking(&price_history, client)?;
+            oracles_and_price_histories.push(OracleAndPriceHistory {
+                price_history: *price_history,
+                oracle: oph_data.oracle_address,
+            });
+        }
+    }
+    Ok(oracles_and_price_histories)
 }
 
 pub async fn get_oracle_price_history(
@@ -111,6 +120,8 @@ pub fn get_account_metas_for_swap(
     mint_out: Pubkey,
     input_token_oracle: Pubkey,
     output_token_oracle: Pubkey,
+    backup_input_token_oracle: Pubkey,
+    backup_output_token_oracle: Pubkey,
     fee_destination: Pubkey,
 ) -> Vec<AccountMeta> {
     let pair = Pair::address(pool_registry, mint_in, mint_out);
@@ -121,6 +132,10 @@ pub fn get_account_metas_for_swap(
         OraclePriceHistory::address(&pool_registry, &input_token_oracle);
     let output_token_price_history =
         OraclePriceHistory::address(&pool_registry, &output_token_oracle);
+    let backup_input_token_price_history =
+        OraclePriceHistory::address(&pool_registry, &backup_input_token_oracle);
+    let backup_output_token_price_history =
+        OraclePriceHistory::address(&pool_registry, &backup_output_token_oracle);
     let ssl_pool_in_signer = SSLPool::signer_address(pool_registry, mint_in);
     let ssl_pool_out_signer = SSLPool::signer_address(pool_registry, mint_out);
     let ssl_in_main_vault = get_associated_token_address(&ssl_pool_in_signer, &mint_in);
@@ -146,6 +161,10 @@ pub fn get_account_metas_for_swap(
         output_token_oracle,
         input_token_price_history,
         input_token_oracle,
+        backup_output_token_price_history,
+        backup_output_token_oracle,
+        backup_input_token_price_history,
+        backup_input_token_oracle,
         event_emitter: EventEmitter::address(),
         token_program: token::ID,
     }

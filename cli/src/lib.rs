@@ -874,8 +874,9 @@ impl Opt {
                 let registry_addrs: Vec<OracleAndPriceHistory> = mints
                     .iter()
                     .map(|mint| {
-                        get_oracle_and_price_history(&pool_registry_acc, *mint, &client).unwrap()
+                        get_oracles_and_histories_for_mint(&pool_registry_acc, *mint, &client).unwrap()
                     })
+                    .flatten()
                     .collect();
 
                 let ix = crank_oracle_price_histories(pool_registry_addr, &registry_addrs);
@@ -1130,6 +1131,14 @@ impl Opt {
                             mint_in,
                         )
                     })?;
+                let backup_price_hist_in =
+                    get_oracle_price_history_blocking(&ssl_in.oracle_price_histories[1], &client)
+                        .map_err(|_| {
+                            anyhow!(
+                            "Could not find the oracle price history for ssl pool of mint {}",
+                            mint_in,
+                        )
+                        })?;
                 let ssl_out = pool_registry_data.find_pool(mint_out).map_err(|_| {
                     anyhow!(
                         "Could not find the output mint {} in pool registry {}",
@@ -1142,6 +1151,14 @@ impl Opt {
                         .map_err(|_| {
                             anyhow!(
                                 "Could not find the oracle price history for ssl pool of mint {}",
+                                mint_out,
+                            )
+                        })?;
+                let backup_price_hist_out =
+                    get_oracle_price_history_blocking(&ssl_out.oracle_price_histories[1], &client)
+                        .map_err(|_| {
+                            anyhow!(
+                                "Could not find the backup oracle price history for ssl pool of mint {}",
                                 mint_out,
                             )
                         })?;
@@ -1165,6 +1182,8 @@ impl Opt {
                     mint_out,
                     price_hist_in.oracle_address,
                     price_hist_out.oracle_address,
+                    backup_price_hist_in.oracle_address,
+                    backup_price_hist_out.oracle_address,
                     fee_destination,
                 );
                 let tx = Transaction::new_signed_with_payer(

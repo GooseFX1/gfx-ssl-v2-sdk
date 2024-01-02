@@ -88,6 +88,20 @@ pub struct Swap<'info> {
     /// CHECK: This account must match the pubkey of what is stored on `self.non_main_token_price_history`.
     pub input_token_oracle: UncheckedAccount<'info>,
 
+    /// Oracle price history of `mint_out`.
+    #[account(mut, has_one = pool_registry)]
+    pub backup_output_token_price_history: AccountLoader<'info, OraclePriceHistory>,
+
+    /// CHECK: This account must match the pubkey of what is stored on `self.main_token_price_history`.
+    pub backup_output_token_oracle: UncheckedAccount<'info>,
+
+    /// Oracle price history of input mint.
+    #[account(mut, has_one = pool_registry)]
+    pub backup_input_token_price_history: AccountLoader<'info, OraclePriceHistory>,
+
+    /// CHECK: This account must match the pubkey of what is stored on `self.non_main_token_price_history`.
+    pub backup_input_token_oracle: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub event_emitter: Account<'info, EventEmitter>,
 
