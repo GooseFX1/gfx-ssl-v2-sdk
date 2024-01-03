@@ -2,7 +2,7 @@
 members = [
     "programs/*",
     "sdk",
-    "cli",
+    # "cli",
     "jupiter",
 ]
 exclude = ["ts"]
@@ -35,9 +35,11 @@ pyth-sdk-solana = "0.8"
 rust_decimal = { version = "1", features = ["maths"] }
 serde = { version  ="1", features = ["derive"] }
 serde_json = "1"
-solana-bpf-simulator = { git = "https://github.com/dovahcrow/solana-bpf-simulator" }
+solana-bpf-simulator = { git = "https://github.com/dovahcrow/solana-bpf-simulator", branch = "ro-1.16" }
+# solana-bpf-simulator = { path = "../../solana/simulator" }
 solana-client = "~1.16"
 solana-sdk = "~1.16"
+solana-program-runtime = "~1.16"
 spl-token = "4"
 spl-associated-token-account = "2"
 switchboard-v2 = "=0.1.22"
@@ -49,3 +51,6 @@ winnow = "=0.4.1"
 
 gfx-ssl-v2-interface = { path = "programs/gfx-ssl-v2", features = ["no-entrypoint"] }
 gfx-ssl-v2-sdk = { path = "sdk" }
+
+[patch.crates-io]
+# solana_rbpf = { path = "../../solana/rbpf" }

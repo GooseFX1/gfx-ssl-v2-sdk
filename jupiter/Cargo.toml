@@ -19,6 +19,7 @@ once_cell = { workspace = true }
 rust_decimal = { workspace = true }
 solana-bpf-simulator = { workspace = true }
 solana-sdk = { workspace = true }
+solana-program-runtime = { workspace = true }
 spl-token = { workspace = true }
 spl-associated-token-account = { workspace = true }
 thiserror = { workspace = true }
