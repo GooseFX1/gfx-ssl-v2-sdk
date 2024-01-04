@@ -214,11 +214,11 @@ impl Amm for GfxAmm {
 
                     let bb0 = history1
                         .bollinger_band(self.mean_windows.1, self.std_windows.1, &history0)
-                        .unwrap();
+                        .map_err(|_| MathError)?;
 
                     let bb1 = history0
                         .bollinger_band(self.mean_windows.0, self.std_windows.0, &history1)
-                        .unwrap();
+                        .map_err(|_| MathError)?;
 
                     self.bbands = (bb0, bb1);
                 }
@@ -239,22 +239,21 @@ impl Amm for GfxAmm {
 
                     let bb0 = history1
                         .bollinger_band(self.mean_windows.1, self.std_windows.1, &history0)
-                        .unwrap();
+                        .map_err(|_| MathError)?;
 
                     let bb1 = history0
                         .bollinger_band(self.mean_windows.0, self.std_windows.0, &history1)
-                        .unwrap();
+                        .map_err(|_| MathError)?;
 
                     self.bbands = (bb0, bb1);
                 }
-            } else if !self.has_program_data && pubkey == &gfx_ssl_v2_sdk::ID {
-                let state: UpgradeableLoaderState =
-                    account.state().expect("SSL Program is not upgradable?");
+            } else if pubkey == &gfx_ssl_v2_sdk::ID {
+                let state: UpgradeableLoaderState = account.state().map_err(|_| NotUpgradable)?;
                 let programdata_address = match state {
                     UpgradeableLoaderState::Program {
                         programdata_address,
                     } => programdata_address,
-                    _ => unreachable!("SSL Program is not upgradable?"),
+                    _ => throw!(NotUpgradable),
                 };
                 self.accounts.insert(programdata_address, None);
                 self.has_program_data = true;

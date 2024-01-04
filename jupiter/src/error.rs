@@ -6,6 +6,9 @@ pub enum GfxJupiterIntegrationError {
     #[error("Could not deserialize {0} as type: {1}")]
     DeserializeFailure(Pubkey, String),
 
+    #[error("Math error")]
+    MathError,
+
     #[error("SSL Pool not found in pool registry for mint: {0}")]
     PoolNotFound(Pubkey),
 
@@ -14,6 +17,9 @@ pub enum GfxJupiterIntegrationError {
 
     #[error("Could not resolve fee destination from pair")]
     CannotResolveFeeDestination,
+
+    #[error("Program is not upgradable")]
+    NotUpgradable,
 
     #[error("Missing quote line in the program log")]
     MissingQuoteLine,

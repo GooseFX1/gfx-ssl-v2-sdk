@@ -69,7 +69,7 @@ pub fn get_quote(
     });
 
     let then = Instant::now();
-    for _ in 0..100 {
+    for _ in 0..10000 {
         gfx_amm.quote(&QuoteParams {
             amount,
             input_mint: mint_in,
@@ -77,7 +77,7 @@ pub fn get_quote(
             swap_mode: Default::default(),
         })?;
     }
-    println!("{:#?}, elapsed: {:?}", quote, then.elapsed() / 100);
+    println!("{:#?}, elapsed: {:?}", quote, then.elapsed() / 10000);
     quote
 }
 
