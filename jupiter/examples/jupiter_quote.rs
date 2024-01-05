@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
     time::Instant,
 };
 
@@ -27,6 +27,7 @@ pub fn get_quote(
     mint_in: Pubkey,
     mint_out: Pubkey,
     client: &RpcClient,
+    local: Option<&Path>,
 ) -> anyhow::Result<Quote> {
     let pair_account = client
         .get_account(&pair_addr)
@@ -38,28 +39,13 @@ pub fn get_quote(
     };
     let mut gfx_amm = GfxAmm::from_keyed_account(&keyed_account)
         .map_err(|e| anyhow!("Could not make GfxAmm instance from pair account: {}", e))?;
+    // gfx_amm.log = true;
 
     // Perform three account updates
-    // "../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so"
     let mut updated = HashSet::new();
-    update_accounts(
-        &mut updated,
-        &mut gfx_amm,
-        client,
-        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
-    );
-    update_accounts(
-        &mut updated,
-        &mut gfx_amm,
-        client,
-        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
-    );
-    update_accounts(
-        &mut updated,
-        &mut gfx_amm,
-        client,
-        Some(Path::new("../gfx-ssl-v2/target/deploy/gfx_ssl_v2.so")),
-    );
+    update_accounts(&mut updated, &mut gfx_amm, client, local);
+    update_accounts(&mut updated, &mut gfx_amm, client, local);
+    update_accounts(&mut updated, &mut gfx_amm, client, local);
 
     let quote = gfx_amm.quote(&QuoteParams {
         amount,
@@ -129,6 +115,9 @@ pub fn update_accounts(
 struct Cli {
     #[arg(long, env, default_value = "https://api.mainnet-beta.solana.com")]
     solana_rpc: Url,
+
+    #[arg(long, env)]
+    local: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -137,8 +126,22 @@ fn main() -> anyhow::Result<()> {
     let pair_addr = Pair::address(POOL_REGISTRY, SOL_MINT, USDC_MINT);
 
     let client = RpcClient::new(cli.solana_rpc.to_string());
-    get_quote(1_000_000, pair_addr, USDC_MINT, SOL_MINT, &client)?;
-    get_quote(1_000_000_000, pair_addr, SOL_MINT, USDC_MINT, &client)?;
+    get_quote(
+        1_000_000,
+        pair_addr,
+        USDC_MINT,
+        SOL_MINT,
+        &client,
+        cli.local.as_deref(),
+    )?;
+    get_quote(
+        1_000_000_000,
+        pair_addr,
+        SOL_MINT,
+        USDC_MINT,
+        &client,
+        cli.local.as_deref(),
+    )?;
 
     Ok(())
 }
