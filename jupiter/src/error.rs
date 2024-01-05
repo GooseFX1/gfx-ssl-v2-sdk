@@ -21,6 +21,6 @@ pub enum GfxJupiterIntegrationError {
     #[error("Program is not upgradable")]
     NotUpgradable,
 
-    #[error("Missing quote line in the program log")]
-    MissingQuoteLine,
+    #[error("Missing quote return")]
+    MissingQuoteReturn,
 }

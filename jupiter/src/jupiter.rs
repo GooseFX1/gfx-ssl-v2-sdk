@@ -32,6 +32,8 @@ type Epoch = u64; // Assuming 10 account updates for each account per s, u64 can
 pub struct GfxAmm {
     pair: Pubkey,
 
+    pub log: bool,
+
     mints: Tuple<2, Pubkey>,
 
     pool_registry: Pubkey,
@@ -122,6 +124,7 @@ impl Amm for GfxAmm {
             .map_err(|_| CannotResolveFeeDestination)?;
 
         Ok(Self {
+            log: false,
             pair: pair_pubkey,
             pool_registry: pair.pool_registry,
             price_histories: Tuple::default(),
@@ -320,7 +323,7 @@ impl Amm for GfxAmm {
         }
         .data();
 
-        let (result, logs) = EXECUTOR.with(|exe| {
+        let (result, data, logger) = EXECUTOR.with(|exe| {
             let mut refmut = if a_to_b {
                 exe[0].borrow_mut()
             } else {
@@ -331,7 +334,9 @@ impl Amm for GfxAmm {
             let (vm, vm_epoch) = (&mut refmut.0, &mut refmut.1);
             let mut new_epoch = *vm_epoch;
 
-            *vm.context_mut().log_collector_mut() = Some(LogCollector::new_ref());
+            if self.log {
+                *vm.context_mut().log_collector_mut() = Some(LogCollector::new_ref());
+            }
             vm.update_instruction(&ix)?;
             for (&key, maybe_account) in &self.accounts {
                 let &Some((ref account, account_epoch)) = maybe_account else {
@@ -366,30 +371,29 @@ impl Amm for GfxAmm {
             *vm_epoch = new_epoch;
 
             let result = vm.execute();
-            let logs = vm
-                .context()
-                .log_collector()
-                .as_ref()
-                .expect("No log collector?")
-                .borrow()
-                .get_recorded_content()
-                .to_vec();
+            let data = vm.get_return_data().cloned();
+            let logs = vm.context_mut().log_collector_mut().take();
 
-            Result::<_, Error>::Ok((result, logs))
+            Result::<_, Error>::Ok((result, data, logs))
         })?;
 
-        // println!("Logs {:?}", logs);
+        if let Some(logger) = logger {
+            let logs = logger.borrow().get_recorded_content().to_vec();
+            println!("Logs {:?}", logs);
+        }
+
         let _ = result?;
 
-        let line = logs
-            .iter()
-            .find(|line| line.starts_with("Program log: QuoteResult: "))
-            .ok_or(MissingQuoteLine)?;
-        let mut iter = line
-            .trim_start_matches("Program log: QuoteResult: ")
-            .split(" ");
-        let output: u64 = iter.next().ok_or(MissingQuoteLine)?.parse()?;
-        let fee: u64 = iter.next().ok_or(MissingQuoteLine)?.parse()?;
+        let Some((_, data)) = data else {
+            throw!(MissingQuoteReturn)
+        };
+
+        if data.len() != 16 {
+            throw!(MissingQuoteReturn);
+        }
+
+        let output: u64 = u64::from_le_bytes(data[..8].try_into().unwrap());
+        let fee: u64 = u64::from_le_bytes(data[8..16].try_into().unwrap());
 
         let fee_pct = if a_to_b {
             self.fee_rates[0]
