@@ -27,7 +27,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_devtools_cli_config::{CommitmentArg, KeypairArg, UrlArg};
 use solana_sdk::{
     compute_budget::ComputeBudgetInstruction, instruction::Instruction, message::Message, pubkey,
-    pubkey::Pubkey, transaction::Transaction,
+    pubkey::Pubkey, signature::Signer, transaction::Transaction,
 };
 use std::{collections::HashMap, fs};
 
