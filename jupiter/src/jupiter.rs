@@ -259,7 +259,7 @@ impl Amm for GfxAmm {
                     if i == 0 {
                         self.bbands = (bb_i, bb_j).into();
                     } else {
-                        self.bbands = (bb_i, bb_j).into();
+                        self.bbands = (bb_j, bb_i).into();
                     }
                 }
             } else if pubkey == &gfx_ssl_v2_sdk::ID {
@@ -324,6 +324,7 @@ impl Amm for GfxAmm {
         let ix = gfx_ssl_v2_sdk::anchor::instruction::Quote {
             amount_in: quote_params.amount,
             bband: Some(bytes_of(&bband).to_vec()),
+            // bband: None,
         }
         .data();
 
