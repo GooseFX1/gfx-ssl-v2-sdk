@@ -1,6 +1,17 @@
+env_files = [
+  { path = "./.env" },
+]
+
+[env]
+RUST_BACKTRACE=1
+
 [config]
 default_to_workspace = false
 skip_core_tasks = true
+
+
+[tasks.run]
+script = "cargo run ${@}"
 
 [tasks.build_cli]
 args = ["build", "-p", "gfx-ssl-v2-cli"]
@@ -14,3 +25,60 @@ command = "cargo"
 args = ["build", "-p", "gfx-ssl-v2-sdk"]
 command = "cargo"
 
+[tasks.install_git_hooks]
+script = """
+file=".git/hooks/pre-commit"
+
+cat > $file <<'EOF'
+# Adapted from https://stackoverflow.com/questions/31057527/git-pre-commit-hook-to-format-and-re-add-files-at-the-same-time
+
+#!/bin/bash
+
+sysroot=`rustc --print sysroot`
+
+# The formatter to use
+formatter=`dirname $sysroot`/nightly-x86_64-unknown-linux-gnu/bin/rustfmt
+
+# Check availability of the formatter
+if [ -z "$formatter" ]
+then
+  1>&2 echo "$formatter not found. Pre-commit formatting will not be done."
+  exit 0
+fi
+
+# Format staged files
+git diff --cached --name-only --diff-filter=ACMR | while read file; do
+  filename=$(basename -- "$file")
+  extension="${filename##*.}"
+
+  if [[ $extension != "rs" ]]; then
+    continue
+  fi
+  
+  echo "Formatting $file"
+  # Get the file from index
+  git show ":$file" > "$file.tmp"
+  # Format it
+  "$formatter" "$file.tmp"
+
+  # Create a blob object from the formatted file
+  hash=`git hash-object -w "$file.tmp"`
+  # Add it back to index
+  git update-index --add --cacheinfo 100644 "$hash" "$file"
+  # Remove the tmp file
+  rm "$file.tmp"
+
+  # Remove the diff from the formatting
+  git checkout "$file"
+done
+
+# If no files left in index after formatting - fail
+# ret=0
+# if [ ! "`git diff --cached --name-only`" ]; then
+#   1>&2 echo "No files left after formatting"
+#   exit 1
+# fi
+EOF
+
+chmod a+x $file
+"""

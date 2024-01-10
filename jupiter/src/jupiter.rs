@@ -22,8 +22,10 @@ use solana_sdk::{
     sysvar::clock,
 };
 
-use crate::tuple::Tuple;
-use crate::{error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap};
+use crate::{
+    error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap,
+    tuple::Tuple,
+};
 
 type Epoch = u64; // Assuming 10 account updates for each account per s, u64 can be used for 5B years
 
@@ -271,8 +273,10 @@ impl Amm for GfxAmm {
                 };
 
                 // There must be a program update, the program address is guaranteed to be different
-                self.accounts.remove(&self.program_data_address);
-                self.accounts.insert(programdata_address, None);
+                if programdata_address != self.program_data_address {
+                    self.accounts.remove(&self.program_data_address);
+                    self.accounts.insert(programdata_address, None);
+                }
                 self.program_data_address = programdata_address;
             }
 
