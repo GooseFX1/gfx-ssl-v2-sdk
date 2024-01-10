@@ -16,14 +16,16 @@ use rust_decimal::Decimal;
 use solana_bpf_simulator::SBPFInstructionExecutor;
 use solana_program_runtime::log_collector::LogCollector;
 use solana_sdk::{
-    account::{AccountSharedData, ReadableAccount},
+    account::{Account, ReadableAccount},
     account_utils::StateMut,
     pubkey::Pubkey,
     sysvar::clock,
 };
 
-use crate::tuple::Tuple;
-use crate::{error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap};
+use crate::{
+    error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap,
+    tuple::Tuple,
+};
 
 type Epoch = u64; // Assuming 10 account updates for each account per s, u64 can be used for 5B years
 
@@ -49,7 +51,7 @@ pub struct GfxAmm {
 
     locs: HashMap<Pubkey, Tuple<2, usize>>,
     epoch: Epoch,
-    accounts: HashMap<Pubkey, Option<(AccountSharedData, Epoch)>>,
+    accounts: HashMap<Pubkey, Option<(Account, Epoch)>>,
 }
 
 impl GfxAmm {
@@ -82,7 +84,7 @@ impl Amm for GfxAmm {
         accounts.insert(gfx_ssl_v2_sdk::ID, None);
 
         let pair_pubkey = pair.key;
-        accounts.insert(pair.key, Some((pair.account.clone().into(), 1)));
+        accounts.insert(pair.key, Some((pair.account.clone(), 1)));
         locs.insert(pair.key, (0, 0).into());
 
         let data = &pair.account.data;
@@ -286,7 +288,7 @@ impl Amm for GfxAmm {
                 account.data =
                     account.data[UpgradeableLoaderState::size_of_programdata_metadata()..].to_vec();
             }
-            *maybe_existing = Some((account.into(), epoch));
+            *maybe_existing = Some((account, epoch));
         }
     }
 
