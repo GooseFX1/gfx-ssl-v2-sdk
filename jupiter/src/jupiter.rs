@@ -1,4 +1,10 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Debug,
+    mem::size_of,
+    slice::{from_raw_parts, from_ref},
+};
 
 use anchor_lang::{
     prelude::{Clock, UpgradeableLoaderState},
@@ -46,7 +52,7 @@ pub struct GfxAmm {
     price_histories: Tuple<2, Pubkey>, // this will get updated once pool_registry is updated
     mean_windows: Tuple<2, usize>,     // this will get updated once pool_registry is updated
     std_windows: Tuple<2, usize>,      // this will get updated once pool_registry is updated
-    bbands: Tuple<2, BollingerBand<f64>>, // this will get updated once two price history is updated
+    bbands: Tuple<2, BollingerBand<Decimal>>, // this will get updated once two price history is updated
     program_data_address: Pubkey,
 
     locs: HashMap<Pubkey, Tuple<2, usize>>,
@@ -263,13 +269,12 @@ impl Amm for GfxAmm {
                     }
                 }
             } else if pubkey == &gfx_ssl_v2_sdk::ID {
-                let state: UpgradeableLoaderState =
-                    account.state().expect("SSL Program is not upgradable?");
-                let programdata_address = match state {
-                    UpgradeableLoaderState::Program {
-                        programdata_address,
-                    } => programdata_address,
-                    _ => throw!(NotUpgradable),
+                let state: UpgradeableLoaderState = account.state().map_err(|_| NotUpgradable)?;
+                let UpgradeableLoaderState::Program {
+                    programdata_address,
+                } = state
+                else {
+                    throw!(NotUpgradable)
                 };
 
                 // There must be a program update, the program address is guaranteed to be different
@@ -299,7 +304,7 @@ impl Amm for GfxAmm {
     fn quote(&self, quote_params: &QuoteParams) -> Quote {
         fn create_vm() -> (SBPFInstructionExecutor<(usize, usize)>, Epoch) {
             // Can increase if 10k is not enough.
-            let vm = SBPFInstructionExecutor::new(40, (10, 10240)).expect("Cannot create VM");
+            let vm = SBPFInstructionExecutor::new(80, (10, 10240)).expect("Cannot create VM");
 
             (vm, 0)
         }
@@ -320,10 +325,17 @@ impl Amm for GfxAmm {
         } else {
             self.bbands[1]
         };
+        let bband = from_ref(&bband);
+        let bband = unsafe {
+            from_raw_parts(
+                bband.as_ptr() as *const u8,
+                size_of::<BollingerBand<Decimal>>(),
+            )
+        };
 
         let ix = gfx_ssl_v2_sdk::anchor::instruction::Quote {
             amount_in: quote_params.amount,
-            bband: Some(bytes_of(&bband).to_vec()),
+            bband: Some(bband.to_vec()),
             // bband: None,
         }
         .data();
@@ -348,7 +360,7 @@ impl Amm for GfxAmm {
                     throw!(RequiredAccountUpdate);
                 };
 
-                if account_epoch <= *vm_epoch {
+                if account_epoch <= *vm_epoch && !self.price_histories.contains(&key) {
                     continue;
                 }
 
