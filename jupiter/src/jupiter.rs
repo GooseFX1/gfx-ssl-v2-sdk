@@ -12,7 +12,6 @@ use anchor_lang::{
 };
 use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::Error;
-use bytemuck::bytes_of;
 use fehler::{throw, throws};
 use gfx_ssl_v2_sdk::state::{BollingerBand, OraclePriceHistory, Pair, PoolRegistry, SSLPool};
 use jupiter_amm_interface::{
@@ -22,7 +21,7 @@ use rust_decimal::Decimal;
 use solana_bpf_simulator::SBPFInstructionExecutor;
 use solana_program_runtime::log_collector::LogCollector;
 use solana_sdk::{
-    account::{AccountSharedData, ReadableAccount},
+    account::{Account, ReadableAccount},
     account_utils::StateMut,
     pubkey::Pubkey,
     sysvar::clock,
@@ -57,7 +56,7 @@ pub struct GfxAmm {
 
     locs: HashMap<Pubkey, Tuple<2, usize>>,
     epoch: Epoch,
-    accounts: HashMap<Pubkey, Option<(AccountSharedData, Epoch)>>,
+    accounts: HashMap<Pubkey, Option<(Account, Epoch)>>,
 }
 
 impl GfxAmm {
@@ -177,6 +176,7 @@ impl Amm for GfxAmm {
     }
 
     /// Update the account state contained in self.
+    // Note: all the required accounts are passed in when calling this func, no matter there's an update or not for that account.
     #[throws(Error)]
     fn update(&mut self, account_map: &AccountMap) {
         for (pubkey, account) in account_map {
@@ -277,12 +277,9 @@ impl Amm for GfxAmm {
                     throw!(NotUpgradable)
                 };
 
-                // There must be a program update, the program address is guaranteed to be different
-                if programdata_address != self.program_data_address {
-                    self.accounts.remove(&self.program_data_address);
-                    self.accounts.insert(programdata_address, None);
+                if self.program_data_address != Default::default() {
+                    self.program_data_address = programdata_address;
                 }
-                self.program_data_address = programdata_address;
             }
 
             // Update the account
