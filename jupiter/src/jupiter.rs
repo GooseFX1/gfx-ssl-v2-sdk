@@ -268,7 +268,9 @@ impl Amm for GfxAmm {
                         self.bbands = (bb_j, bb_i).into();
                     }
                 }
-            } else if pubkey == &gfx_ssl_v2_sdk::ID {
+            } else if pubkey == &gfx_ssl_v2_sdk::ID
+                && self.program_data_address != Default::default()
+            {
                 let state: UpgradeableLoaderState = account.state().map_err(|_| NotUpgradable)?;
                 let UpgradeableLoaderState::Program {
                     programdata_address,
@@ -277,9 +279,7 @@ impl Amm for GfxAmm {
                     throw!(NotUpgradable)
                 };
 
-                if self.program_data_address != Default::default() {
-                    self.program_data_address = programdata_address;
-                }
+                self.program_data_address = programdata_address;
             }
 
             // Update the account

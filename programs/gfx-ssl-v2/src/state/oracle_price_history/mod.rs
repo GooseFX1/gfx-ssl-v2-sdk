@@ -4,7 +4,6 @@ pub mod oracle_type;
 use crate::PDAIdentifier;
 use anchor_lang::{prelude::*, Discriminator};
 use bytemuck::Zeroable;
-use num_traits::FromPrimitive;
 use rust_decimal::{Decimal, MathematicalOps};
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
