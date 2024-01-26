@@ -16,9 +16,17 @@ pub struct Swap<'info> {
     pub user_wallet: Signer<'info>,
 
     /// CHECK: Uninitialized PDA signer, signs for transfer of `mint_out` from SSL Pool "in".
+    #[account(
+        seeds = [SSLPool::IDENT, pool_registry.key().as_ref(), user_ata_in.mint.as_ref()],
+        bump,
+    )]
     pub ssl_pool_in_signer: UncheckedAccount<'info>,
 
     /// CHECK: Uninitialized PDA signer, signs for transfer of `mint_out` from SSL Pool "out".
+    #[account(
+        seeds = [SSLPool::IDENT, pool_registry.key().as_ref(), user_ata_out.mint.as_ref()],
+        bump,
+    )]
     pub ssl_pool_out_signer: UncheckedAccount<'info>,
 
     /// User signs for a debit to this account in `amount`.

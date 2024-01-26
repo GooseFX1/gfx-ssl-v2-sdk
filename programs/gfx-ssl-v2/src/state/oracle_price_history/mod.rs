@@ -32,7 +32,9 @@ pub struct OraclePriceHistory {
     pub minimum_elapsed_slots: u8,
     /// Used to configure how many slots can pass before a price is considered stale
     pub max_slot_price_staleness: u8,
-    pub _pad0: [u8; 5],
+    pub backup_oracle_type: u8,
+    pub backup_oracle2_type: u8,
+    pub _pad0: [u8; 3],
     /// The pool registry pubkey.
     pub pool_registry: Pubkey,
     /// The oracle pubkey itself.
@@ -42,7 +44,11 @@ pub struct OraclePriceHistory {
     /// Total number of updates that have executed.
     /// This is used to keep track of where the most recently updated value is.
     pub num_updates: u64,
-    _space: [u8; 128],
+    pub backup_oracle: Pubkey,
+    pub latest_backup_oracle_price: HistoricalPrice,
+    pub backup_oracle2: Pubkey,
+    pub latest_backup_oracle2_price: HistoricalPrice,
+    _space: [u8; 16],
     /// Historical record of price values.
     pub price_history: [HistoricalPrice; NUM_HISTORICAL_PRICE_ENTRIES],
 }
@@ -50,31 +56,6 @@ pub struct OraclePriceHistory {
 impl Default for OraclePriceHistory {
     fn default() -> Self {
         Self::zeroed()
-    }
-}
-
-#[cfg(feature = "no-entrypoint")]
-impl Display for OraclePriceHistory {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Pool Registry: {}", self.pool_registry)?;
-        writeln!(f, "Mint: {}", self.mint)?;
-        writeln!(f, "Oracle Address: {}", self.oracle_address)?;
-        writeln!(f, "Oracle type: {}", OracleType::from(self.oracle_type))?;
-        writeln!(f, "Minimum Elapsed Slots: {}", self.minimum_elapsed_slots)?;
-        writeln!(
-            f,
-            "Maximum Price Slot Staleness: {}",
-            self.max_slot_price_staleness
-        )?;
-
-        let price_iter = AccountHistoryIterator::from(self);
-        for (idx, historical_price) in price_iter.enumerate() {
-            if *historical_price != HistoricalPrice::default() {
-                writeln!(f, "Historical Price {}", idx)?;
-                writeln!(f, "{}", historical_price)?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -106,17 +87,31 @@ impl OraclePriceHistory {
     /// Create an instance with mock data.
     /// For unit testing.
     #[cfg(feature = "no-entrypoint")]
-    pub fn from_test_data(test_data: Vec<i64>) -> Self {
+    pub fn from_test_data(
+        test_data: Vec<i64>,
+        backup_oracle_address: Option<Pubkey>,
+        backup_oracle_type: Option<u8>,
+        backup_oracle_latest_price: Option<HistoricalPrice>,
+        backup_oracle2_address: Option<Pubkey>,
+        backup_oracle2_type: Option<u8>,
+        backup_oracle2_latest_price: Option<HistoricalPrice>,
+    ) -> Self {
         let mut price_history = Self {
             oracle_type: OracleType::Pyth.into(),
             minimum_elapsed_slots: 0,
             max_slot_price_staleness: u8::MAX,
-            _pad0: [0; 5],
+            backup_oracle_type: backup_oracle_type.unwrap_or_default(),
+            backup_oracle2_type: backup_oracle2_type.unwrap_or_default(),
+            _pad0: [0; 3],
             pool_registry: Default::default(),
             oracle_address: Default::default(),
             mint: Default::default(),
             num_updates: NUM_HISTORICAL_PRICE_ENTRIES as u64,
-            _space: [0; 128],
+            backup_oracle: backup_oracle_address.unwrap_or_default(),
+            latest_backup_oracle_price: backup_oracle_latest_price.unwrap_or_default(),
+            backup_oracle2: backup_oracle2_address.unwrap_or_default(),
+            latest_backup_oracle2_price: backup_oracle2_latest_price.unwrap_or_default(),
+            _space: [0; 16],
             price_history: [Default::default(); NUM_HISTORICAL_PRICE_ENTRIES],
         };
         test_data.into_iter().enumerate().for_each(|(slot, num)| {
