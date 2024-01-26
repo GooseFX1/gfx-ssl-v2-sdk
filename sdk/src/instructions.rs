@@ -205,9 +205,8 @@ pub fn suspend_ssl(
     pool_registry: Pubkey,
     suspend_admin: Pubkey,
     mint: Pubkey,
-    is_suspended: bool,
 ) -> Instruction {
-    let data = gfx_ssl_v2_interface::instruction::SuspendSsl { is_suspended }.data();
+    let data = gfx_ssl_v2_interface::instruction::SuspendSsl.data();
 
     let accounts = gfx_ssl_v2_interface::accounts::SuspendSsl {
         suspend_admin,
