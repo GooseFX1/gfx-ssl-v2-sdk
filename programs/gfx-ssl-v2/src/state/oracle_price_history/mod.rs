@@ -4,6 +4,7 @@ pub mod oracle_type;
 use crate::PDAIdentifier;
 use anchor_lang::{prelude::*, Discriminator};
 use bytemuck::Zeroable;
+use rust_decimal::{Decimal, MathematicalOps};
 #[cfg(feature = "no-entrypoint")]
 use std::fmt::{Display, Formatter};
 use std::io::Write;
@@ -179,7 +180,7 @@ impl OraclePriceHistory {
         mean_window: usize,
         std_window: usize,
         input_token_history: &OraclePriceHistory,
-    ) -> Result<BollingerBand<f64>> {
+    ) -> Result<BollingerBand<Decimal>> {
         if mean_window == 0 || std_window == 0 {
             return err!(SSLV2Error::MathError);
         }
@@ -192,8 +193,8 @@ impl OraclePriceHistory {
         let output_token_prices = AccountHistoryIterator::from(self);
         let input_token_prices = AccountHistoryIterator::from(input_token_history);
         // Values to calculate the common mean
-        let mut mean_sum = 0f64;
-        let mut std_sum = 0f64;
+        let mut mean_sum = Decimal::ZERO;
+        let mut std_sum = Decimal::ZERO;
         // Copy the items to iterate again and calculate variance.
         let mut std_items = Vec::with_capacity(mean_window.max(std_window));
         // iterate over the window
@@ -211,10 +212,8 @@ impl OraclePriceHistory {
         // From the rest of the elements,
         // calculate the mean, and gather the items for variance calculation.
         for (idx, elem) in iterator {
-            let price = Into::<f64>::into(elem.0.price) / Into::<f64>::into(elem.1.price);
+            let price = Into::<Decimal>::into(elem.0.price) / Into::<Decimal>::into(elem.1.price);
             if idx < mean_window {
-                #[cfg(feature = "debug-msg")]
-                msg!("(mean) next price: {}", price);
                 mean_sum = mean_sum + price;
             }
             if idx < std_window {
@@ -224,15 +223,15 @@ impl OraclePriceHistory {
         }
 
         // Standard deviation
-        let std_mean = std_sum / std_window as f64;
-        let mut variance = 0f64;
+        let std_mean = std_sum / Decimal::from(std_window);
+        let mut variance = Decimal::ZERO;
         for elem in std_items {
             let diff = std_mean - elem;
             variance = variance + diff * diff;
         }
-        let variance = variance / std_window as f64;
-        let std = variance.sqrt();
-        let mean = mean_sum / mean_window as f64;
+        let variance = variance / Decimal::from(std_window);
+        let std = variance.sqrt().ok_or(SSLV2Error::MathError)?;
+        let mean = mean_sum / Decimal::from(mean_window);
 
         Ok(BollingerBand { mean, std })
     }

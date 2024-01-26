@@ -1,4 +1,10 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Debug};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Debug,
+    mem::size_of,
+    slice::{from_raw_parts, from_ref},
+};
 
 use anchor_lang::{
     prelude::{Clock, UpgradeableLoaderState},
@@ -6,7 +12,6 @@ use anchor_lang::{
 };
 use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::Error;
-use bytemuck::bytes_of;
 use fehler::{throw, throws};
 use gfx_ssl_v2_sdk::state::{BollingerBand, OraclePriceHistory, Pair, PoolRegistry, SSLPool};
 use jupiter_amm_interface::{
@@ -16,14 +21,16 @@ use rust_decimal::Decimal;
 use solana_bpf_simulator::SBPFInstructionExecutor;
 use solana_program_runtime::log_collector::LogCollector;
 use solana_sdk::{
-    account::{AccountSharedData, ReadableAccount},
+    account::{Account, ReadableAccount},
     account_utils::StateMut,
     pubkey::Pubkey,
     sysvar::clock,
 };
 
-use crate::tuple::Tuple;
-use crate::{error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap};
+use crate::{
+    error::GfxJupiterIntegrationError::*, swap_account_metas::get_account_metas_for_swap,
+    tuple::Tuple,
+};
 
 type Epoch = u64; // Assuming 10 account updates for each account per s, u64 can be used for 5B years
 
@@ -44,12 +51,12 @@ pub struct GfxAmm {
     price_histories: Tuple<2, Pubkey>, // this will get updated once pool_registry is updated
     mean_windows: Tuple<2, usize>,     // this will get updated once pool_registry is updated
     std_windows: Tuple<2, usize>,      // this will get updated once pool_registry is updated
-    bbands: Tuple<2, BollingerBand<f64>>, // this will get updated once two price history is updated
+    bbands: Tuple<2, BollingerBand<Decimal>>, // this will get updated once two price history is updated
     program_data_address: Pubkey,
 
     locs: HashMap<Pubkey, Tuple<2, usize>>,
     epoch: Epoch,
-    accounts: HashMap<Pubkey, Option<(AccountSharedData, Epoch)>>,
+    accounts: HashMap<Pubkey, Option<(Account, Epoch)>>,
 }
 
 impl GfxAmm {
@@ -169,6 +176,7 @@ impl Amm for GfxAmm {
     }
 
     /// Update the account state contained in self.
+    // Note: all the required accounts are passed in when calling this func, no matter there's an update or not for that account.
     #[throws(Error)]
     fn update(&mut self, account_map: &AccountMap) {
         for (pubkey, account) in account_map {
@@ -257,22 +265,20 @@ impl Amm for GfxAmm {
                     if i == 0 {
                         self.bbands = (bb_i, bb_j).into();
                     } else {
-                        self.bbands = (bb_i, bb_j).into();
+                        self.bbands = (bb_j, bb_i).into();
                     }
                 }
-            } else if pubkey == &gfx_ssl_v2_sdk::ID {
-                let state: UpgradeableLoaderState =
-                    account.state().expect("SSL Program is not upgradable?");
-                let programdata_address = match state {
-                    UpgradeableLoaderState::Program {
-                        programdata_address,
-                    } => programdata_address,
-                    _ => throw!(NotUpgradable),
+            } else if pubkey == &gfx_ssl_v2_sdk::ID
+                && self.program_data_address != Default::default()
+            {
+                let state: UpgradeableLoaderState = account.state().map_err(|_| NotUpgradable)?;
+                let UpgradeableLoaderState::Program {
+                    programdata_address,
+                } = state
+                else {
+                    throw!(NotUpgradable)
                 };
 
-                // There must be a program update, the program address is guaranteed to be different
-                self.accounts.remove(&self.program_data_address);
-                self.accounts.insert(programdata_address, None);
                 self.program_data_address = programdata_address;
             }
 
@@ -295,7 +301,7 @@ impl Amm for GfxAmm {
     fn quote(&self, quote_params: &QuoteParams) -> Quote {
         fn create_vm() -> (SBPFInstructionExecutor<(usize, usize)>, Epoch) {
             // Can increase if 10k is not enough.
-            let vm = SBPFInstructionExecutor::new(40, (10, 10240)).expect("Cannot create VM");
+            let vm = SBPFInstructionExecutor::new(80, (10, 10240)).expect("Cannot create VM");
 
             (vm, 0)
         }
@@ -316,10 +322,18 @@ impl Amm for GfxAmm {
         } else {
             self.bbands[1]
         };
+        let bband = from_ref(&bband);
+        let bband = unsafe {
+            from_raw_parts(
+                bband.as_ptr() as *const u8,
+                size_of::<BollingerBand<Decimal>>(),
+            )
+        };
 
         let ix = gfx_ssl_v2_sdk::anchor::instruction::Quote {
             amount_in: quote_params.amount,
-            bband: Some(bytes_of(&bband).to_vec()),
+            bband: Some(bband.to_vec()),
+            // bband: None,
         }
         .data();
 
@@ -343,7 +357,7 @@ impl Amm for GfxAmm {
                     throw!(RequiredAccountUpdate);
                 };
 
-                if account_epoch <= *vm_epoch {
+                if account_epoch <= *vm_epoch && !self.price_histories.contains(&key) {
                     continue;
                 }
 

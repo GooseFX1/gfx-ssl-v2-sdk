@@ -1,5 +1,5 @@
 use std::{
-    mem::zeroed,
+    mem::{zeroed, MaybeUninit},
     ops::{Deref, DerefMut},
 };
 
@@ -62,6 +62,13 @@ impl<const N: usize, T> Tuple<N, T> {
 
         false
     }
+
+    pub fn map<F, U>(self, f: F) -> Tuple<N, U>
+    where
+        F: FnMut(T) -> U,
+    {
+        Tuple(self.0.map(f))
+    }
 }
 
 impl<const N: usize, T> Tuple<N, T>
@@ -105,5 +112,16 @@ impl<const N: usize, T> Deref for Tuple<N, T> {
 impl<const N: usize, T> DerefMut for Tuple<N, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<const N: usize, A> FromIterator<A> for Tuple<N, A> {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        let mut a = unsafe { MaybeUninit::<[MaybeUninit<A>; N]>::uninit().assume_init() };
+        for (i, e) in iter.into_iter().enumerate() {
+            a[i].write(e);
+        }
+        let a = a.map(|a| unsafe { a.assume_init() });
+        Tuple(a)
     }
 }
